@@ -1,3 +1,4 @@
+![alt text](media/Usecase.jpg)
 # Use Case Diagram
 
 ```mermaid
@@ -25,13 +26,6 @@ useCaseDiagram
     UC4 --> UC6
     UC6 --> A
     D -- UC2 : (Provides vehicle movement)
-
-
-
-
-
-
-
 
 
     flowchart TD

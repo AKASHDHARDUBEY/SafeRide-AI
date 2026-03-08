@@ -1,3 +1,5 @@
+![alt text](<media/sequence Diagram.jpg>)
+
 ---
 
 ### 📄 3. `sequenceDiagram.md`

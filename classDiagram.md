@@ -1,6 +1,8 @@
+![alt text](<media/class Diagram .jpg>)
 ---
 
 ### 📄 4. `classDiagram.md`
+
 *Note: This is designed to show OOP. I have used a Controller $\rightarrow$ Service $\rightarrow$ Repository structure.*
 
 ```markdown
@@ -47,3 +49,4 @@ classDiagram
     TripService --> TripRepository
     TripService --> LocationCache
     TripService --> NotificationService
+

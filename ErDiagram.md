@@ -1,3 +1,5 @@
+
+![alt text](<media/er .jpg>)
 ---
 
 ### 📄 5. `ErDiagram.md`
