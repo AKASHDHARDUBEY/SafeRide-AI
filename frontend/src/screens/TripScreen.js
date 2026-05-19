@@ -66,7 +66,8 @@ export default function TripScreen() {
     const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
     
     // Initialize Trip in Backend
-    SocketService.startTrip(destination);
+    const origin = location ? `${location.latitude},${location.longitude}` : 'Pune, India';
+    SocketService.startTrip(destination, origin);
 
     if (bgStatus === 'granted') {
       // Start the Background Task

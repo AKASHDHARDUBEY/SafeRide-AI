@@ -39,9 +39,9 @@ class SocketService {
     }
   }
 
-  startTrip(destination) {
+  startTrip(destination, origin = 'Pune, India') {
     if (this.socket) {
-      this.socket.emit('startTrip', { dest: destination });
+      this.socket.emit('startTrip', { dest: destination, origin });
     }
   }
 

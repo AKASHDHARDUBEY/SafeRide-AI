@@ -21,11 +21,11 @@ class TripController {
             return socket.emit('error', { message: 'Destination is required' });
         }
 
-        const { dest, userId } = data;
+        const { dest, origin, userId } = data;
         const tripId = `TRIP_${Date.now()}`;
 
         try {
-            await tripService.createTrip(tripId, userId || 'anonymous', dest);
+            await tripService.createTrip(tripId, userId || 'anonymous', dest, origin);
             socket.emit('tripStarted', { tripId });
             console.log(`🚀 Trip Started: ${tripId}`);
         } catch (err) {
