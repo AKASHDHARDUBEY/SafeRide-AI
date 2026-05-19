@@ -19,7 +19,7 @@ class TripRepository extends BaseRepository {
         return await Trip.findOneAndUpdate(
             { tripId },
             { status, endTime: status === 'COMPLETED' ? new Date() : undefined },
-            { new: true }
+            { returnDocument: 'after' }
         );
     }
 
@@ -30,7 +30,7 @@ class TripRepository extends BaseRepository {
                 status: 'DEVIATED',
                 $push: { incidents: incident }
             },
-            { new: true }
+            { returnDocument: 'after' }
         );
     }
 
@@ -38,7 +38,7 @@ class TripRepository extends BaseRepository {
         return await Trip.findOneAndUpdate(
             { tripId },
             { lastKnownLocation: coords },
-            { new: true }
+            { returnDocument: 'after' }
         );
     }
 }

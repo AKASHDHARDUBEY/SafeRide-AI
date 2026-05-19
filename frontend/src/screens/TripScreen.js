@@ -10,6 +10,15 @@ export default function TripScreen() {
   const [location, setLocation] = useState(null);
   const [locationSubscription, setLocationSubscription] = useState(null);
 
+  // Use refs for cleanup inside useEffect with [] dependency
+  const isTrackingRef = React.useRef(isTracking);
+  const locationSubRef = React.useRef(locationSubscription);
+
+  useEffect(() => {
+    isTrackingRef.current = isTracking;
+    locationSubRef.current = locationSubscription;
+  }, [isTracking, locationSubscription]);
+
   useEffect(() => {
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
@@ -30,15 +39,15 @@ export default function TripScreen() {
     SocketService.initializeSocket();
 
     return () => {
-      if (isTracking) {
+      if (isTrackingRef.current) {
         Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME).catch(() => {});
-        if (locationSubscription) {
-          locationSubscription.remove();
+        if (locationSubRef.current) {
+          locationSubRef.current.remove();
         }
       }
       SocketService.disconnect();
     };
-  }, [isTracking, locationSubscription]);
+  }, []);
 
   const handleStartTrip = async () => {
     if (!destination) {
@@ -64,7 +73,6 @@ export default function TripScreen() {
       await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
         accuracy: Location.Accuracy.High,
         timeInterval: 5000, 
-        distanceInterval: 10, 
         foregroundService: {
           notificationTitle: "Safety Shield Active",
           notificationBody: "Your ride is being monitored for safety.",
@@ -75,7 +83,7 @@ export default function TripScreen() {
     } else {
       // Fallback: Foreground Tracking Only
       const sub = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.High, timeInterval: 5000, distanceInterval: 10 },
+        { accuracy: Location.Accuracy.High, timeInterval: 5000 },
         (loc) => {
           if (SocketService.activeTripId) {
             SocketService.emitLocationUpdate({
