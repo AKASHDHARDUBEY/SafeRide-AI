@@ -10,7 +10,8 @@ class CacheRepository {
     }
 
     async updateLastLocation(tripId, coords) {
-        await redisClient.set(`trip:${tripId}:last_loc`, JSON.stringify(coords));
+        // Expire key in 60 seconds. If not updated by then, signal is lost.
+        await redisClient.set(`trip:${tripId}:last_loc`, JSON.stringify(coords), 'EX', 60);
     }
 
     async getLastLocation(tripId) {

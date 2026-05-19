@@ -15,6 +15,10 @@ class TripRepository extends BaseRepository {
         return await Trip.findOne({ tripId });
     }
 
+    async findActiveTrips() {
+        return await Trip.find({ status: 'ACTIVE' });
+    }
+
     async updateTripStatus(tripId, status) {
         return await Trip.findOneAndUpdate(
             { tripId },

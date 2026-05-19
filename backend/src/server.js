@@ -7,6 +7,7 @@ dotenv.config();
 
 const connectDB = require('./config/db');
 const tripController = require('./controllers/tripController');
+const watchdogService = require('./services/watchdogService');
 
 const app = express();
 app.use(cors());
@@ -24,6 +25,9 @@ const io = new Server(server, {
 
 // Connect Database
 connectDB();
+
+// Start Watchdog Service
+watchdogService.startWatchdog();
 
 // Socket.io Logic
 io.on('connection', (socket) => {
