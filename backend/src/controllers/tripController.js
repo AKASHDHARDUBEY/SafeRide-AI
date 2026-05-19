@@ -39,6 +39,8 @@ class TripController {
             this.validateLocationData(data);
 
             const { tripId, latitude, longitude } = data;
+            console.log(`📍 Received Update [${tripId}]: Lat ${latitude.toFixed(4)}, Lng ${longitude.toFixed(4)}`);
+            
             await cacheRepo.updateLastLocation(tripId, { latitude, longitude });
             const result = await deviationService.checkDeviation(tripId, { latitude, longitude });
 

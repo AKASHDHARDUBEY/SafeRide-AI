@@ -7,17 +7,38 @@ import { LOCATION_TASK_NAME } from '../tasks/LocationTask';
 export default function TripScreen() {
   const [destination, setDestination] = useState('');
   const [isTracking, setIsTracking] = useState(false);
+  const [location, setLocation] = useState(null);
+  const [locationSubscription, setLocationSubscription] = useState(null);
 
   useEffect(() => {
+    (async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission to access location was denied');
+        return;
+      }
+
+      let currentLocation = await Location.getCurrentPositionAsync({});
+      setLocation({
+        latitude: currentLocation.coords.latitude,
+        longitude: currentLocation.coords.longitude,
+        latitudeDelta: 0.0922,
+        longitudeDelta: 0.0421,
+      });
+    })();
+
     SocketService.initializeSocket();
 
     return () => {
       if (isTracking) {
-        Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
+        Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME).catch(() => {});
+        if (locationSubscription) {
+          locationSubscription.remove();
+        }
       }
       SocketService.disconnect();
     };
-  }, []);
+  }, [isTracking, locationSubscription]);
 
   const handleStartTrip = async () => {
     if (!destination) {
@@ -32,34 +53,53 @@ export default function TripScreen() {
       return;
     }
 
-    // 2. Request Background Permission (CRITICAL)
+    // 2. Request Background Permission
     const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
-    if (bgStatus !== 'granted') {
-      Alert.alert('Permission Denied', 'Background location permission is required for safety monitoring');
-      return;
-    }
-
+    
     // Initialize Trip in Backend
     SocketService.startTrip(destination);
 
-    // 3. Start the Background Task
-    await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
-      accuracy: Location.Accuracy.High,
-      timeInterval: 5000, // Ping every 5 seconds
-      distanceInterval: 10, // Or every 10 meters
-      foregroundService: {
-        notificationTitle: "Safety Shield Active",
-        notificationBody: "Your ride is being monitored for safety.",
-        notificationColor: "#0066cc",
-      },
-    });
+    if (bgStatus === 'granted') {
+      // Start the Background Task
+      await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
+        accuracy: Location.Accuracy.High,
+        timeInterval: 5000, 
+        distanceInterval: 10, 
+        foregroundService: {
+          notificationTitle: "Safety Shield Active",
+          notificationBody: "Your ride is being monitored for safety.",
+          notificationColor: "#0066cc",
+        },
+      });
+      Alert.alert("Safety Shield Activated", "Passive background monitoring is now active.");
+    } else {
+      // Fallback: Foreground Tracking Only
+      const sub = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.High, timeInterval: 5000, distanceInterval: 10 },
+        (loc) => {
+          if (SocketService.activeTripId) {
+            SocketService.emitLocationUpdate({
+              tripId: SocketService.activeTripId,
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude
+            });
+            console.log(`[Foreground Update] Sent for ${SocketService.activeTripId}`);
+          }
+        }
+      );
+      setLocationSubscription(sub);
+      Alert.alert("Foreground Shield Activated", "Monitoring is active but you must keep the app open (Background permission denied).");
+    }
 
     setIsTracking(true);
-    Alert.alert("Safety Shield Activated", "Passive monitoring is now active. Your location is securely streamed.");
   };
 
   const handleEndTrip = async () => {
-    await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
+    Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME).catch(() => {});
+    if (locationSubscription) {
+      locationSubscription.remove();
+      setLocationSubscription(null);
+    }
     SocketService.endTrip();
     setIsTracking(false);
     setDestination('');
@@ -68,9 +108,8 @@ export default function TripScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Real app would use react-native-maps MapView here */}
       <View style={styles.mapPlaceholder}>
-        <Text style={styles.mapText}>Map Dashboard</Text>
+        <Text style={styles.mapText}>Map Dashboard (Tracking Active)</Text>
       </View>
 
       <View style={styles.panel}>

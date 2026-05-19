@@ -13,13 +13,16 @@ TaskManager.defineTask(LOCATION_TASK_NAME, ({ data, error }) => {
     if (locations && locations.length > 0) {
       const { latitude, longitude } = locations[0].coords;
 
-      // In a real application, tripId would be pulled from a global store or Secure Store.
-      SocketService.emitLocationUpdate({
-        tripId: 'TRIP_123',
-        latitude,
-        longitude
-      });
-      console.log(`[Background Task] Location update sent: lat ${latitude}, lng ${longitude}`);
+      if (SocketService.activeTripId) {
+        SocketService.emitLocationUpdate({
+          tripId: SocketService.activeTripId,
+          latitude,
+          longitude
+        });
+        console.log(`[Background Task] Location update sent for ${SocketService.activeTripId}: lat ${latitude}, lng ${longitude}`);
+      } else {
+        console.log(`[Background Task] No active trip, ignoring location update.`);
+      }
     }
   }
 });

@@ -1,10 +1,9 @@
-// src/repositories/tripRepository.js
-const BaseRepository = require('./BaseRepository'); // 1. Import the Parent
+const BaseRepository = require('./BaseRepository');
 const Trip = require('../models/Trip');
 
-class TripRepository extends BaseRepository { // 2. Use 'extends' to inherit
+class TripRepository extends BaseRepository {
     constructor() {
-        super(Trip); // 3. Pass the Trip model to the Parent constructor
+        super(Trip);
     }
 
     async createTrip(tripData) {

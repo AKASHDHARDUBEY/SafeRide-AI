@@ -4,6 +4,7 @@ class SocketService {
   constructor() {
     this.socket = null;
     this.serverUrl = 'http://51.21.150.93:5000'; // AWS EC2 Public IP
+    this.activeTripId = null;
   }
 
   initializeSocket() {
@@ -12,6 +13,16 @@ class SocketService {
 
       this.socket.on('connect', () => {
         console.log('Socket connected to backend');
+      });
+
+      this.socket.on('tripStarted', (data) => {
+        console.log('Trip started with ID:', data.tripId);
+        this.activeTripId = data.tripId;
+      });
+
+      this.socket.on('tripEnded', () => {
+        console.log('Trip ended');
+        this.activeTripId = null;
       });
 
       this.socket.on('disconnect', () => {
@@ -35,8 +46,8 @@ class SocketService {
   }
 
   endTrip() {
-    if (this.socket) {
-      this.socket.emit('endTrip');
+    if (this.socket && this.activeTripId) {
+      this.socket.emit('endTrip', { tripId: this.activeTripId });
     }
   }
 
