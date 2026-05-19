@@ -32,7 +32,7 @@ class WatchdogService {
                             timestamp: new Date(),
                             deviationDistance: -1, // -1 indicates signal loss
                             coordinates: { lat: coords.latitude, lng: coords.longitude },
-                            alertStatus: 'SIGNAL_LOST'
+                            alertStatus: 'SENT'
                         });
                         
                     }
