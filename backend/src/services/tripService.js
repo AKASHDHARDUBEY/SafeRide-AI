@@ -41,6 +41,15 @@ class TripService {
         // 2. Cache the polyline in Redis for fast access
         await cacheRepo.setTripPolyline(tripId, trip.polyline);
 
+        // 3. Initialize last location in cache to prevent false positive signal loss immediately after start
+        let initLat = 0, initLng = 0;
+        if (origin && origin.includes(',')) {
+            const parts = origin.split(',');
+            initLat = parseFloat(parts[0]) || 0;
+            initLng = parseFloat(parts[1]) || 0;
+        }
+        await cacheRepo.updateLastLocation(tripId, { latitude: initLat, longitude: initLng });
+
         return trip;
     }
 
