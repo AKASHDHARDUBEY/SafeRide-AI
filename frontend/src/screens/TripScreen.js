@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import SocketService from '../services/SocketService';
+import SOSButton from '../components/SOSButton';
 import { LOCATION_TASK_NAME } from '../tasks/LocationTask';
 
 const { width } = Dimensions.get('window');
@@ -345,6 +346,8 @@ export default function TripScreen({ navigation }) {
                   <Text style={[styles.statValue, {color: '#4CAF50'}]}>98%</Text>
                 </View>
               </View>
+
+              <SOSButton />
 
               <TouchableOpacity style={styles.stopButton} onPress={handleEndTrip}>
                 <Text style={styles.buttonText}>End Trip</Text>

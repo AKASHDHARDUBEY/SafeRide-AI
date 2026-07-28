@@ -83,6 +83,30 @@ class TripController {
             socket.emit('error', { message: 'Failed to fetch history' });
         }
     }
+
+    // 🚨 Emergency SOS Handler
+    async handleEmergencySOS(socket, data) {
+        const { userId, userName, latitude, longitude, emergencyPhone, guardianFcmToken } = data;
+
+        console.log(`🚨 EMERGENCY SOS RECEIVED FROM: ${userName || userId}`);
+
+        const userData = { name: userName || 'SafeRide User' };
+        const guardianData = { 
+            phone: emergencyPhone, 
+            fcmToken: guardianFcmToken 
+        };
+        const coords = { latitude, longitude };
+
+        // Fire Fast2SMS + FCM simultaneously
+        const results = await notifyService.dispatchEmergencyAlert(userData, guardianData, coords);
+
+        // Send acknowledgement back to user app
+        socket.emit('sosDispatched', { 
+            status: 'SUCCESS', 
+            message: 'Emergency SMS & App Alert sent to guardians!',
+            results 
+        });
+    }
 }
 
 module.exports = new TripController();

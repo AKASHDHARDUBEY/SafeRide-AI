@@ -18,6 +18,20 @@ app.get('/', (req, res) => {
     res.json({ status: 'ok', message: '🚀 Safety Backend is running' });
 });
 
+// REST Endpoint for Emergency SOS (Fallback)
+const notifyService = require('./services/notifyService');
+app.post('/api/sos', async (req, res) => {
+    const { userId, userName, latitude, longitude, emergencyPhone, guardianFcmToken } = req.body;
+    console.log(`🚨 HTTP REST EMERGENCY SOS RECEIVED FROM: ${userName || userId}`);
+    
+    const userData = { name: userName || 'SafeRide User' };
+    const guardianData = { phone: emergencyPhone, fcmToken: guardianFcmToken };
+    const coords = { latitude, longitude };
+
+    const results = await notifyService.dispatchEmergencyAlert(userData, guardianData, coords);
+    res.json({ status: 'SUCCESS', message: 'SOS Dispatched via REST', results });
+});
+
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: { origin: "*" }
@@ -37,6 +51,7 @@ io.on('connection', (socket) => {
     socket.on('updateLocation', (data) => tripController.handleLocationUpdate(socket, data));
     socket.on('endTrip', (data) => tripController.handleEndTrip(socket, data));
     socket.on('getHistory', (data) => tripController.getTripHistory(socket, data));
+    socket.on('triggerSOS', (data) => tripController.handleEmergencySOS(socket, data));
 
     socket.on('disconnect', () => {
         console.log('📱 Device Disconnected:', socket.id);

@@ -3,21 +3,33 @@ import io from 'socket.io-client';
 class SocketService {
   constructor() {
     this.socket = null;
-    this.serverUrl = 'http://51.21.150.93:5000'; // AWS EC2 Public IP
+    this.serverUrl = 'http://10.254.200.153:5001'; // Local backend
     this.activeTripId = null;
   }
 
   initializeSocket() {
     if (!this.socket) {
-      this.socket = io(this.serverUrl);
+      console.log('🔌 Attempting socket connection to:', this.serverUrl);
+      this.socket = io(this.serverUrl, {
+        timeout: 5000,
+        transports: ['websocket', 'polling']
+      });
 
       this.socket.on('connect', () => {
-        console.log('Socket connected to backend');
+        console.log('✅ Socket connected to backend, id:', this.socket.id);
+      });
+
+      this.socket.on('connect_error', (err) => {
+        console.log('❌ Socket connection error:', err.message);
       });
 
       this.socket.on('tripStarted', (data) => {
         console.log('Trip started with ID:', data.tripId);
         this.activeTripId = data.tripId;
+      });
+
+      this.socket.on('sosDispatched', (data) => {
+        console.log('🚨 SOS Response from server:', JSON.stringify(data));
       });
 
       this.socket.on('tripEnded', () => {
