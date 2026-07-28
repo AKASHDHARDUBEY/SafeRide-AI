@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform 
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import SocketService from '../services/SocketService';
 
 export default function EmergencyChatScreen({ route, navigation }) {
@@ -17,13 +18,22 @@ export default function EmergencyChatScreen({ route, navigation }) {
   const [currentLocation, setCurrentLocation] = useState(null);
 
   useEffect(() => {
-    // 1. Join Socket Room for this specific Emergency Trip
+    // 1. Ensure Socket is initialized & join room
+    SocketService.initializeSocket();
+
     if (SocketService.socket) {
       SocketService.socket.emit('joinEmergencyRoom', { tripId });
 
       // 2. Listen for incoming Real-time Messages
       SocketService.socket.on('receiveEmergencyMessage', (newMessage) => {
-        setMessages((prevMessages) => [...prevMessages, newMessage]);
+        setMessages((prevMessages) => {
+          // Avoid duplicate if already added optimistically
+          const exists = prevMessages.some(
+            m => m.text === newMessage.text && m.sender === newMessage.sender && Math.abs(new Date(m.timestamp) - new Date(newMessage.timestamp)) < 2000
+          );
+          if (exists) return prevMessages;
+          return [...prevMessages, newMessage];
+        });
       });
 
       // 3. Listen for Live Location Updates from Victim
@@ -47,9 +57,13 @@ export default function EmergencyChatScreen({ route, navigation }) {
     const messageData = {
       tripId,
       sender: userRole,     // 'VICTIM' or 'GUARDIAN'
-      senderName: userName,
-      text: inputText
+      senderName: userName || (userRole === 'VICTIM' ? 'Rider' : 'Guardian'),
+      text: inputText.trim(),
+      timestamp: new Date().toISOString()
     };
+
+    // Optimistic UI Update: add message immediately to screen!
+    setMessages((prevMessages) => [...prevMessages, messageData]);
 
     // Emit message to Backend
     if (SocketService.socket) {
@@ -63,16 +77,25 @@ export default function EmergencyChatScreen({ route, navigation }) {
       style={styles.container} 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      {/* Top Banner: Live Status & Location Link */}
+      {/* Top Banner with Back Arrow */}
       <View style={styles.topBanner}>
-        <Text style={styles.bannerTitle}>🚨 Emergency Safety Hub</Text>
-        {currentLocation ? (
-          <Text style={styles.locationText}>
-            📍 Live GPS: {currentLocation.latitude.toFixed(4)}, {currentLocation.longitude.toFixed(4)}
-          </Text>
-        ) : (
-          <Text style={styles.locationText}>📡 Syncing Live Location...</Text>
-        )}
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={26} color="#FFF" />
+        </TouchableOpacity>
+
+        <View style={styles.bannerHeader}>
+          <Text style={styles.bannerTitle}>🚨 Emergency Safety Hub</Text>
+          {currentLocation ? (
+            <Text style={styles.locationText}>
+              📍 Live GPS: {currentLocation.latitude.toFixed(4)}, {currentLocation.longitude.toFixed(4)}
+            </Text>
+          ) : (
+            <Text style={styles.locationText}>📡 Syncing Live Location...</Text>
+          )}
+        </View>
       </View>
 
       {/* Chat Messages List */}
@@ -116,8 +139,24 @@ export default function EmergencyChatScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F7FA' },
-  topBanner: { backgroundColor: '#EF5350', padding: 15, paddingTop: 40, alignItems: 'center' },
-  bannerTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
+  topBanner: { 
+    backgroundColor: '#EF5350', 
+    paddingHorizontal: 15, 
+    paddingTop: Platform.OS === 'ios' ? 45 : 35, 
+    paddingBottom: 15,
+    flexDirection: 'row', 
+    alignItems: 'center' 
+  },
+  backButton: {
+    paddingRight: 10,
+    justifyContent: 'center'
+  },
+  bannerHeader: {
+    flex: 1,
+    alignItems: 'center',
+    marginRight: 26
+  },
+  bannerTitle: { color: '#FFF', fontSize: 17, fontWeight: 'bold' },
   locationText: { color: '#FFEEEB', fontSize: 13, marginTop: 4 },
   messageBubble: { padding: 12, borderRadius: 12, marginBottom: 10, maxWidth: '80%' },
   myBubble: { alignSelf: 'flex-end', backgroundColor: '#3F51B5' },

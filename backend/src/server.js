@@ -51,7 +51,7 @@ io.on('connection', (socket) => {
     socket.on('updateLocation', (data) => tripController.handleLocationUpdate(socket, data));
     socket.on('endTrip', (data) => tripController.handleEndTrip(socket, data));
     socket.on('getHistory', (data) => tripController.getTripHistory(socket, data));
-    socket.on('triggerSOS', (data) => tripController.handleEmergencySOS(socket, data));
+    socket.on('triggerSOS', (data) => tripController.handleEmergencySOS(socket, data, io));
 
     // 💬 Emergency Room Socket Events
     socket.on('joinEmergencyRoom', ({ tripId }) => {

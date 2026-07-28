@@ -34,6 +34,7 @@ export default function SOSButton() {
 
               // 3. Dispatch SOS via HTTP REST API for guaranteed delivery + socket event
               const sosPayload = {
+                tripId: SocketService.activeTripId || 'TRIP_123',
                 userId: userId || 'USER_123',
                 userName: userEmail || 'SafeRide User',
                 latitude: location.coords.latitude,
@@ -44,6 +45,13 @@ export default function SOSButton() {
 
               if (SocketService.socket) {
                 SocketService.socket.emit('triggerSOS', sosPayload);
+                // Also post an emergency chat message directly to room
+                SocketService.socket.emit('sendEmergencyMessage', {
+                  tripId: SocketService.activeTripId || 'TRIP_123',
+                  sender: 'VICTIM',
+                  senderName: userEmail || 'Rider',
+                  text: `🚨 EMERGENCY SOS TRIGGERED! Live GPS: ${location.coords.latitude.toFixed(4)}, ${location.coords.longitude.toFixed(4)}`
+                });
               }
 
               try {

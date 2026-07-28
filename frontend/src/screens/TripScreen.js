@@ -349,6 +349,18 @@ export default function TripScreen({ navigation }) {
 
               <SOSButton />
 
+              <TouchableOpacity 
+                style={styles.chatButton} 
+                onPress={() => navigation.navigate('EmergencyChat', {
+                  tripId: SocketService.activeTripId || 'TRIP_123',
+                  userRole: 'VICTIM',
+                  userName: destinationName ? `Rider (${destinationName})` : 'Victim'
+                })}
+              >
+                <Ionicons name="chatbubbles-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
+                <Text style={styles.buttonText}>💬 Live Emergency Chat</Text>
+              </TouchableOpacity>
+
               <TouchableOpacity style={styles.stopButton} onPress={handleEndTrip}>
                 <Text style={styles.buttonText}>End Trip</Text>
               </TouchableOpacity>
@@ -491,6 +503,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20
+  },
+  chatButton: {
+    backgroundColor: '#3F51B5', // Deep Indigo
+    height: 50,
+    borderRadius: 25,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12
   },
   buttonText: {
     color: '#fff',

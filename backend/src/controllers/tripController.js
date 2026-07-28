@@ -85,8 +85,8 @@ class TripController {
     }
 
     // 🚨 Emergency SOS Handler
-    async handleEmergencySOS(socket, data) {
-        const { userId, userName, latitude, longitude, emergencyPhone, guardianFcmToken } = data;
+    async handleEmergencySOS(socket, data, io) {
+        const { userId, userName, latitude, longitude, emergencyPhone, guardianFcmToken, tripId } = data;
 
         console.log(`🚨 EMERGENCY SOS RECEIVED FROM: ${userName || userId}`);
 
@@ -106,6 +106,22 @@ class TripController {
             message: 'Emergency SMS & App Alert sent to guardians!',
             results 
         });
+
+        // Broadcast SOS System Message to Emergency Chat Room if room exists
+        const roomTarget = tripId || 'TRIP_123';
+        const sosChatMessage = {
+            sender: 'SYSTEM',
+            senderName: '🚨 SYSTEM ALERT',
+            text: `EMERGENCY SOS DISPATCHED! Live location: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+            timestamp: new Date()
+        };
+
+        if (io) {
+            io.to(roomTarget).emit('receiveEmergencyMessage', sosChatMessage);
+        } else {
+            socket.emit('receiveEmergencyMessage', sosChatMessage);
+        }
+        await tripRepo.saveChatMessage(roomTarget, sosChatMessage).catch(() => {});
     }
 
     // 💬 Real-Time Emergency Room Chat Message Handler
