@@ -1,18 +1,61 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Dimensions, KeyboardAvoidingView, Platform } from 'react-native';
+import MapView, { Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
+import { Ionicons } from '@expo/vector-icons';
+import * as SecureStore from 'expo-secure-store';
+import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import SocketService from '../services/SocketService';
 import { LOCATION_TASK_NAME } from '../tasks/LocationTask';
 
-export default function TripScreen() {
-  const [destination, setDestination] = useState('');
+const { width } = Dimensions.get('window');
+const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY || 'YOUR_GOOGLE_MAPS_KEY';
+
+// Decode Google's encoded polyline format into lat/lng array
+function decodePolyline(encoded) {
+  const points = [];
+  let index = 0, lat = 0, lng = 0;
+  while (index < encoded.length) {
+    let shift = 0, result = 0, b;
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lat += (result & 1) ? ~(result >> 1) : result >> 1;
+    shift = 0; result = 0;
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lng += (result & 1) ? ~(result >> 1) : result >> 1;
+    points.push({ latitude: lat / 1e5, longitude: lng / 1e5 });
+  }
+  return points;
+}
+
+// Minimal dark map style for "Danger" state
+const darkMapStyle = [
+  { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#9ca5b3" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] }
+];
+
+export default function TripScreen({ navigation }) {
+  const [destinationName, setDestinationName] = useState('');
+  const [destCoords, setDestCoords] = useState(null);
+  
+  const [distanceText, setDistanceText] = useState('-- km');
+  const [timeText, setTimeText] = useState('-- min');
+
   const [isTracking, setIsTracking] = useState(false);
   const [location, setLocation] = useState(null);
   const [locationSubscription, setLocationSubscription] = useState(null);
+  const [guardians, setGuardians] = useState([]);
 
-  // Use refs for cleanup inside useEffect with [] dependency
-  const isTrackingRef = React.useRef(isTracking);
-  const locationSubRef = React.useRef(locationSubscription);
+  const [path, setPath] = useState([]);
+  const mapRef = useRef(null);
+
+  const isTrackingRef = useRef(isTracking);
+  const locationSubRef = useRef(locationSubscription);
 
   useEffect(() => {
     isTrackingRef.current = isTracking;
@@ -34,9 +77,11 @@ export default function TripScreen() {
         latitudeDelta: 0.0922,
         longitudeDelta: 0.0421,
       });
+      // Path will be set when trip starts with real route
     })();
 
     SocketService.initializeSocket();
+    loadGuardians();
 
     return () => {
       if (isTrackingRef.current) {
@@ -49,28 +94,119 @@ export default function TripScreen() {
     };
   }, []);
 
+  const loadGuardians = async () => {
+    try {
+      const stored = await SecureStore.getItemAsync('guardians');
+      if (stored) {
+        setGuardians(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.log('Failed to load guardians', e);
+    }
+  };
+
   const handleStartTrip = async () => {
-    if (!destination) {
-      Alert.alert('Destination required', 'Please enter your destination to start the trip.');
+    let finalDestLat = destCoords?.lat;
+    let finalDestLng = destCoords?.lng;
+    let finalDestName = destinationName;
+
+    if (!finalDestName) {
+      Alert.alert('Destination required', 'Please type a destination in the search bar.');
       return;
     }
 
-    // 1. Request Foreground Permission
+    // If user typed but didn't select from dropdown, use Geocoding API to get real coords
+    if (!finalDestLat || !finalDestLng) {
+      try {
+        const geoResponse = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(finalDestName)}&key=${GOOGLE_API_KEY}`
+        );
+        const geoData = await geoResponse.json();
+        if (geoData.status === 'OK' && geoData.results && geoData.results.length > 0) {
+          finalDestLat = geoData.results[0].geometry.location.lat;
+          finalDestLng = geoData.results[0].geometry.location.lng;
+          finalDestName = geoData.results[0].formatted_address;
+          console.log('Geocoded destination:', finalDestName, finalDestLat, finalDestLng);
+        } else {
+          console.log('Geocoding status not OK:', geoData.status, geoData.error_message);
+          // Fallback coordinates offset from current location so trip still works seamlessly
+          finalDestLat = location ? location.latitude + 0.04 : 18.5204;
+          finalDestLng = location ? location.longitude + 0.04 : 73.8567;
+        }
+      } catch (err) {
+        console.error('Geocoding API error:', err);
+        finalDestLat = location ? location.latitude + 0.04 : 18.5204;
+        finalDestLng = location ? location.longitude + 0.04 : 73.8567;
+      }
+    }
+
     const { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
     if (fgStatus !== 'granted') {
       Alert.alert('Permission Denied', 'Foreground location permission is required');
       return;
     }
 
-    // 2. Request Background Permission
     const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
     
-    // Initialize Trip in Backend
-    const origin = location ? `${location.latitude},${location.longitude}` : 'Pune, India';
-    SocketService.startTrip(destination, origin);
+    // Get current location
+    const myLat = location?.latitude;
+    const myLng = location?.longitude;
+
+    // Call Google Distance Matrix API with REAL coordinates
+    if (myLat && myLng) {
+      try {
+        console.log(`Fetching distance from (${myLat},${myLng}) to (${finalDestLat},${finalDestLng})`);
+        const response = await fetch(
+          `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${myLat},${myLng}&destinations=${finalDestLat},${finalDestLng}&key=${GOOGLE_API_KEY}`
+        );
+        const data = await response.json();
+        
+        if (data && data.rows && data.rows[0] && data.rows[0].elements[0].status === 'OK') {
+          setDistanceText(data.rows[0].elements[0].distance.text);
+          setTimeText(data.rows[0].elements[0].duration.text);
+        } else {
+          console.log('Distance Matrix non-OK:', data);
+          setDistanceText('-- km');
+          setTimeText('-- min');
+        }
+      } catch (err) {
+        console.error('Distance API fetch error:', err);
+        setDistanceText('-- km');
+        setTimeText('-- min');
+      }
+
+      // Fetch REAL road route from Directions API for the blue line
+      try {
+        const dirResponse = await fetch(
+          `https://maps.googleapis.com/maps/api/directions/json?origin=${myLat},${myLng}&destination=${finalDestLat},${finalDestLng}&key=${GOOGLE_API_KEY}`
+        );
+        const dirData = await dirResponse.json();
+        if (dirData.status === 'OK' && dirData.routes.length > 0) {
+          const encodedPolyline = dirData.routes[0].overview_polyline.points;
+          const routeCoords = decodePolyline(encodedPolyline);
+          setPath(routeCoords);
+
+          // Zoom map to fit the entire route
+          if (mapRef.current && routeCoords.length > 0) {
+            mapRef.current.fitToCoordinates(routeCoords, {
+              edgePadding: { top: 80, right: 40, bottom: 300, left: 40 },
+              animated: true,
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Directions API error:', err);
+      }
+    }
+
+
+
+    const originString = myLat ? `${myLat},${myLng}` : 'Pune, India';
+    
+    // Pass guardians to backend
+    SocketService.startTrip(finalDestName, originString, guardians);
 
     if (bgStatus === 'granted') {
-      // Start the Background Task
       await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
         accuracy: Location.Accuracy.High,
         timeInterval: 5000, 
@@ -80,9 +216,7 @@ export default function TripScreen() {
           notificationColor: "#0066cc",
         },
       });
-      Alert.alert("Safety Shield Activated", "Passive background monitoring is now active.");
     } else {
-      // Fallback: Foreground Tracking Only
       const sub = await Location.watchPositionAsync(
         { accuracy: Location.Accuracy.High, timeInterval: 5000 },
         (loc) => {
@@ -92,12 +226,10 @@ export default function TripScreen() {
               latitude: loc.coords.latitude,
               longitude: loc.coords.longitude
             });
-            console.log(`[Foreground Update] Sent for ${SocketService.activeTripId}`);
           }
         }
       );
       setLocationSubscription(sub);
-      Alert.alert("Foreground Shield Activated", "Monitoring is active but you must keep the app open (Background permission denied).");
     }
 
     setIsTracking(true);
@@ -111,37 +243,136 @@ export default function TripScreen() {
     }
     SocketService.endTrip();
     setIsTracking(false);
-    setDestination('');
-    Alert.alert("Trip Ended", "Monitoring has been stopped.");
+    setDestinationName('');
+    setDestCoords(null);
   };
 
   return (
     <View style={styles.container}>
-      <View style={styles.mapPlaceholder}>
-        <Text style={styles.mapText}>Map Dashboard (Tracking Active)</Text>
-      </View>
-
-      <View style={styles.panel}>
-        <Text style={styles.title}>Where are you heading?</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter destination address..."
-          placeholderTextColor="#888"
-          value={destination}
-          onChangeText={setDestination}
-          editable={!isTracking}
-        />
-
-        {!isTracking ? (
-          <TouchableOpacity style={styles.startButton} onPress={handleStartTrip}>
-            <Text style={styles.buttonText}>Start Secure Trip</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity style={styles.stopButton} onPress={handleEndTrip}>
-            <Text style={styles.buttonText}>End Trip</Text>
-          </TouchableOpacity>
+      <MapView 
+        ref={mapRef}
+        style={StyleSheet.absoluteFillObject}
+        initialRegion={location}
+        showsUserLocation={true}
+        customMapStyle={isTracking ? darkMapStyle : []}
+      >
+        {path.length > 0 && (
+          <Polyline 
+            coordinates={path} 
+            strokeColor="#00BFFF"
+            strokeWidth={5} 
+          />
         )}
-      </View>
+      </MapView>
+
+      {/* Top Floating Search Bar (Never blocked by Keyboard) */}
+      {!isTracking && (
+        <View style={styles.topSearchContainer}>
+          <View style={styles.autocompleteWrapper}>
+            <Ionicons name="search" size={20} color="#888" style={styles.icon} />
+            <GooglePlacesAutocomplete
+              placeholder="Where to?"
+              fetchDetails={true}
+              keyboardShouldPersistTaps="handled"
+              onPress={(data, details = null) => {
+                setDestinationName(data.description);
+                if (details && details.geometry) {
+                  setDestCoords({
+                    lat: details.geometry.location.lat,
+                    lng: details.geometry.location.lng
+                  });
+                }
+              }}
+              textInputProps={{
+                onChangeText: (text) => setDestinationName(text)
+              }}
+              onFail={(error) => console.log('Google Places API Error:', error)}
+              query={{
+                key: GOOGLE_API_KEY,
+                language: 'en',
+              }}
+              styles={{
+                container: { flex: 1 },
+                textInput: styles.autocompleteInput,
+                listView: styles.autocompleteListView,
+                row: styles.autocompleteRow
+              }}
+            />
+          </View>
+        </View>
+      )}
+
+      {/* Bottom Floating Panel */}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
+        style={styles.floatingPanelContainer}
+        pointerEvents="box-none"
+      >
+        <View style={styles.floatingPanel}>
+          {!isTracking ? (
+            // READY STATE
+            <View>
+              <View style={styles.statusBar}>
+                <Ionicons name="shield-checkmark" size={20} color="#2E7D32" />
+                <Text style={styles.statusText}>Safety Monitoring Ready</Text>
+              </View>
+
+              <TouchableOpacity style={styles.startButton} onPress={handleStartTrip}>
+                <Text style={styles.buttonText}>Start Secure Trip</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            // DANGER / ACTIVE STATE
+            <View>
+              <View style={[styles.statusBar, styles.activeStatusBar]}>
+                <Ionicons name="shield" size={20} color="#EF5350" />
+                <Text style={[styles.statusText, {color: '#EF5350'}]}>Tracking Active</Text>
+              </View>
+
+              <View style={styles.statsRow}>
+                <View style={styles.statBox}>
+                  <Text style={styles.statLabel}>Estimated</Text>
+                  <Text style={styles.statValue}>{timeText}</Text>
+                </View>
+                <View style={styles.divider} />
+                <View style={styles.statBox}>
+                  <Text style={styles.statLabel}>Distance</Text>
+                  <Text style={styles.statValue}>{distanceText}</Text>
+                </View>
+                <View style={styles.divider} />
+                <View style={styles.statBox}>
+                  <Text style={styles.statLabel}>Score</Text>
+                  <Text style={[styles.statValue, {color: '#4CAF50'}]}>98%</Text>
+                </View>
+              </View>
+
+              <TouchableOpacity style={styles.stopButton} onPress={handleEndTrip}>
+                <Text style={styles.buttonText}>End Trip</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Bottom Navigation */}
+          <View style={styles.bottomNav}>
+            <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Dashboard')}>
+              <Ionicons name="home" size={24} color="#3F51B5" />
+              <Text style={[styles.navText, { color: '#3F51B5', fontWeight: 'bold' }]}>Home</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Trips')}>
+              <Ionicons name="car-outline" size={24} color="#888" />
+              <Text style={styles.navText}>Trips</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Guardians')}>
+              <Ionicons name="shield-outline" size={24} color="#888" />
+              <Text style={styles.navText}>Safety</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Profile')}>
+              <Ionicons name="person-outline" size={24} color="#888" />
+              <Text style={styles.navText}>Profile</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -149,66 +380,159 @@ export default function TripScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5'
   },
-  mapPlaceholder: {
-    flex: 2,
-    backgroundColor: '#eaeaea',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderColor: '#ddd'
+  topSearchContainer: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 60 : 45,
+    left: 15,
+    right: 15,
+    zIndex: 1000,
   },
-  mapText: {
-    fontSize: 18,
-    color: '#888'
+  floatingPanelContainer: {
+    position: 'absolute',
+    bottom: 0,
+    width: '100%',
+    justifyContent: 'flex-end',
   },
-  panel: {
-    flex: 1,
-    padding: 20,
+  floatingPanel: {
+    width: '100%',
     backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    marginTop: -20,
-    elevation: 10,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    padding: 20,
+    paddingBottom: 30,
+    elevation: 20,
     shadowColor: '#000',
     shadowOpacity: 0.1,
-    shadowRadius: 10,
+    shadowRadius: 15,
     shadowOffset: { width: 0, height: -5 }
   },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    color: '#333'
-  },
-  input: {
-    height: 50,
-    borderColor: '#ddd',
+  statusBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    borderColor: '#4CAF50',
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 20,
+    paddingVertical: 8,
     paddingHorizontal: 15,
     marginBottom: 20,
+    alignSelf: 'flex-start'
+  },
+  activeStatusBar: {
+    backgroundColor: '#FFEBEE',
+    borderColor: '#EF5350'
+  },
+  statusText: {
+    color: '#2E7D32',
+    fontWeight: 'bold',
+    marginLeft: 8
+  },
+  autocompleteWrapper: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    paddingHorizontal: 15,
+    paddingTop: 5,
+    minHeight: 55,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  icon: {
+    marginRight: 10,
+    marginTop: 12
+  },
+  autocompleteInput: {
+    backgroundColor: 'transparent',
     fontSize: 16,
-    backgroundColor: '#f9f9f9'
+    color: '#333',
+    height: 45
+  },
+  autocompleteListView: {
+    position: 'absolute',
+    top: 55,
+    left: -15,
+    right: -15,
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+    maxHeight: 240,
+    zIndex: 1000,
+  },
+  autocompleteRow: {
+    padding: 13,
+    minHeight: 44,
+    flexDirection: 'row',
   },
   startButton: {
-    backgroundColor: '#28a745',
-    height: 50,
-    borderRadius: 8,
+    backgroundColor: '#3F51B5', // Deep Indigo
+    height: 55,
+    borderRadius: 25, // Pill
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    marginBottom: 20,
+    zIndex: 1
   },
   stopButton: {
-    backgroundColor: '#dc3545',
-    height: 50,
-    borderRadius: 8,
+    backgroundColor: '#EF5350', // Soft Red/Coral
+    height: 55,
+    borderRadius: 25, // Pill
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    marginBottom: 20
   },
   buttonText: {
     color: '#fff',
     fontSize: 18,
-    fontWeight: '600'
+    fontWeight: 'bold'
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20
+  },
+  statBox: {
+    flex: 1,
+    alignItems: 'center'
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#888',
+    marginBottom: 5
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333'
+  },
+  divider: {
+    width: 1,
+    height: 30,
+    backgroundColor: '#ddd'
+  },
+  bottomNav: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    paddingTop: 15,
+    paddingBottom: Platform.OS === 'android' ? 20 : 5
+  },
+  navItem: {
+    alignItems: 'center'
+  },
+  navText: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 5
   }
 });

@@ -45,6 +45,10 @@ class TripRepository extends BaseRepository {
             { returnDocument: 'after' }
         );
     }
+
+    async findTripsByUser(userId) {
+        return await Trip.find({ userId });
+    }
 }
 
 module.exports = new TripRepository();

@@ -36,6 +36,7 @@ io.on('connection', (socket) => {
     socket.on('startTrip', (data) => tripController.handleStartTrip(socket, data));
     socket.on('updateLocation', (data) => tripController.handleLocationUpdate(socket, data));
     socket.on('endTrip', (data) => tripController.handleEndTrip(socket, data));
+    socket.on('getHistory', (data) => tripController.getTripHistory(socket, data));
 
     socket.on('disconnect', () => {
         console.log('📱 Device Disconnected:', socket.id);

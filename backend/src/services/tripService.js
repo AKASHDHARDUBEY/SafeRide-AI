@@ -5,7 +5,7 @@ const { Client } = require("@googlemaps/google-maps-services-js");
 const googleMapsClient = new Client({});
 
 class TripService {
-    async createTrip(tripId, userId, destination, origin = 'Pune, India') {
+    async createTrip(tripId, userId, destination, origin = 'Pune, India', guardians = []) {
         let encodedPolyline = 'DUMMY_ENCODED_POLYLINE';
 
         try {
@@ -35,6 +35,7 @@ class TripService {
             userId,
             destination,
             polyline: encodedPolyline,
+            guardians,
             status: 'ACTIVE'
         });
 

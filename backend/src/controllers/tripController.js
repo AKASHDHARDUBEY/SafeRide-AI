@@ -3,6 +3,7 @@ const tripService = require('../services/tripService');
 const deviationService = require('../services/deviationService');
 const notifyService = require('../services/notifyService');
 const cacheRepo = require('../repositories/cacheRepository');
+const tripRepo = require('../repositories/tripRepository');
 
 class TripController {
 
@@ -21,11 +22,11 @@ class TripController {
             return socket.emit('error', { message: 'Destination is required' });
         }
 
-        const { dest, origin, userId } = data;
+        const { dest, origin, userId, guardians } = data;
         const tripId = `TRIP_${Date.now()}`;
 
         try {
-            await tripService.createTrip(tripId, userId || 'anonymous', dest, origin);
+            await tripService.createTrip(tripId, userId || 'anonymous', dest, origin, guardians);
             socket.emit('tripStarted', { tripId });
             console.log(`🚀 Trip Started: ${tripId}`);
         } catch (err) {
@@ -46,7 +47,8 @@ class TripController {
 
             if (result.deviated) {
                 console.log(`⚠️ DEVIATION DETECTED for ${tripId}!`);
-                await notifyService.sendSilentAlert(tripId, { latitude, longitude });
+                const trip = await tripRepo.findTripById(tripId);
+                await notifyService.sendSilentAlert(tripId, { latitude, longitude }, trip?.guardians || []);
                 await tripService.logIncident(tripId, { latitude, longitude }, result.distance);
             }
         } catch (err) {
@@ -65,6 +67,20 @@ class TripController {
             console.log(`🏁 Trip Ended: ${tripId}`);
         } catch (err) {
             console.error('❌ Error ending trip:', err.message);
+        }
+    }
+
+    async getTripHistory(socket, data) {
+        const { userId } = data;
+        if (!userId) {
+            return socket.emit('error', { message: 'userId is required' });
+        }
+        try {
+            const trips = await tripRepo.findTripsByUser(userId);
+            socket.emit('historyData', trips);
+        } catch (err) {
+            console.error("❌ Error fetching history:", err.message);
+            socket.emit('error', { message: 'Failed to fetch history' });
         }
     }
 }

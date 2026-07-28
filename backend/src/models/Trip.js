@@ -5,6 +5,7 @@ const TripSchema = new mongoose.Schema({
     userId: { type: String, required: true },
     destination: String,
     polyline: String, // Encoded polyline from Google Maps
+    guardians: [String], // Trusted Guardian Sync
     status: { type: String, enum: ['ACTIVE', 'COMPLETED', 'DEVIATED'], default: 'ACTIVE' },
     startTime: { type: Date, default: Date.now },
     endTime: Date,
