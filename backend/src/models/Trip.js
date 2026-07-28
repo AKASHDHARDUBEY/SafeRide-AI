@@ -21,6 +21,12 @@ const TripSchema = new mongoose.Schema({
             lng: Number
         },
         alertStatus: { type: String, enum: ['SENT', 'ACKNOWLEDGED'], default: 'SENT' }
+    }],
+    messages: [{
+        sender: String, // 'VICTIM' or 'GUARDIAN'
+        senderName: String,
+        text: String,
+        timestamp: { type: Date, default: Date.now }
     }]
 });
 

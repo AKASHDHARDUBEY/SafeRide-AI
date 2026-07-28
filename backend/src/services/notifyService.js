@@ -54,17 +54,22 @@ class NotifyService {
         longitude: String(longitude),
         mapsLink: mapsLink,
         type: 'EMERGENCY'
-      },
-      token: targetToken // Guardian's FCM Token
+      }
     };
+
+    if (targetToken && targetToken.trim().length > 0) {
+      message.token = targetToken;
+    } else {
+      message.topic = 'emergency_contacts';
+    }
 
     try {
       if (admin.apps && admin.apps.length > 0) {
-        await admin.messaging().send(message);
-        console.log('🔔 FCM Push Notification sent to Guardian');
-        return { success: true };
+        const response = await admin.messaging().send(message);
+        console.log('🔔 FCM Push Notification Sent via Firebase Admin SDK:', response);
+        return { success: true, response };
       } else {
-        console.log('🔔 [MOCK FCM] Notification triggered for token:', targetToken);
+        console.log('🔔 [MOCK FCM] Push Notification triggered for:', message);
         return { success: true, mock: true };
       }
     } catch (err) {
@@ -81,18 +86,16 @@ class NotifyService {
 
     const results = { sms: null, fcm: null };
 
-    // Send SMS via Fast2SMS
-    if (phone && process.env.FAST2SMS_API_KEY) {
+    // Send SMS via Fast2SMS (Only if ENABLE_REAL_SMS === 'true' to save credit)
+    if (phone && process.env.FAST2SMS_API_KEY && process.env.ENABLE_REAL_SMS === 'true') {
       results.sms = await this.sendEmergencySMS(phone, name, latitude, longitude);
     } else if (phone) {
-      console.log(`📱 [MOCK SMS] Would send SOS to ${phone} for ${name} at (${latitude}, ${longitude})`);
-      results.sms = { success: true, mock: true };
+      console.log(`📱 [PAUSED SMS TO SAVE CREDIT] Fast2SMS bypassed for ${phone}. Set ENABLE_REAL_SMS=true in backend/.env to re-enable.`);
+      results.sms = { success: true, pausedToSaveCredit: true };
     }
 
-    // Send App Notification via FCM
-    if (fcmToken) {
-      results.fcm = await this.sendFCMPushNotification(fcmToken, name, latitude, longitude);
-    }
+    // Always send App Notification via Firebase FCM Push Notification
+    results.fcm = await this.sendFCMPushNotification(fcmToken, name, latitude, longitude);
 
     return results;
   }

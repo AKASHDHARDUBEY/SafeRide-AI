@@ -107,6 +107,29 @@ class TripController {
             results 
         });
     }
+
+    // 💬 Real-Time Emergency Room Chat Message Handler
+    async handleChatMessage(io, data) {
+        const { tripId, sender, senderName, text } = data;
+
+        const messageData = {
+            sender,       // 'VICTIM' or 'GUARDIAN'
+            senderName,
+            text,
+            timestamp: new Date()
+        };
+
+        try {
+            // 1. Save chat message to MongoDB
+            await tripRepo.saveChatMessage(tripId, messageData);
+
+            // 2. Broadcast to room (both Victim & Guardian)
+            io.to(tripId).emit('receiveEmergencyMessage', messageData);
+            console.log(`💬 Message sent in room ${tripId}: [${senderName}] ${text}`);
+        } catch (err) {
+            console.error('❌ Error saving chat message:', err.message);
+        }
+    }
 }
 
 module.exports = new TripController();

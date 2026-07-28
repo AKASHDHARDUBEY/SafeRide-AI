@@ -49,6 +49,14 @@ class TripRepository extends BaseRepository {
     async findTripsByUser(userId) {
         return await Trip.find({ userId });
     }
+
+    async saveChatMessage(tripId, messageData) {
+        return await Trip.findOneAndUpdate(
+            { tripId },
+            { $push: { messages: messageData } },
+            { returnDocument: 'after' }
+        );
+    }
 }
 
 module.exports = new TripRepository();

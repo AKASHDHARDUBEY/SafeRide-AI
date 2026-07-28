@@ -53,6 +53,16 @@ io.on('connection', (socket) => {
     socket.on('getHistory', (data) => tripController.getTripHistory(socket, data));
     socket.on('triggerSOS', (data) => tripController.handleEmergencySOS(socket, data));
 
+    // 💬 Emergency Room Socket Events
+    socket.on('joinEmergencyRoom', ({ tripId }) => {
+        socket.join(tripId);
+        console.log(`📡 Socket ${socket.id} joined Emergency Room: ${tripId}`);
+    });
+
+    socket.on('sendEmergencyMessage', (data) => {
+        tripController.handleChatMessage(io, data);
+    });
+
     socket.on('disconnect', () => {
         console.log('📱 Device Disconnected:', socket.id);
     });
