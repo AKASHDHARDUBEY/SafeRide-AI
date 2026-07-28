@@ -54,8 +54,13 @@ class TripRepository extends BaseRepository {
         return await Trip.findOneAndUpdate(
             { tripId },
             { $push: { messages: messageData } },
-            { returnDocument: 'after' }
+            { returnDocument: 'after', upsert: true }
         );
+    }
+
+    async getChatMessages(tripId) {
+        const trip = await Trip.findOne({ tripId });
+        return trip ? (trip.messages || []) : [];
     }
 }
 

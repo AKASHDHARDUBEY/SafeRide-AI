@@ -7,13 +7,13 @@ import SocketService from '../services/SocketService';
 
 export default function EmergencyChatScreen({ route, navigation }) {
   // Params passed during navigation or emergency open
-  const { tripId, userRole, userName } = route.params || { 
+  const { tripId, userRole, userName, initialMessage } = route.params || { 
     tripId: 'TRIP_123', 
     userRole: 'VICTIM', // or 'GUARDIAN'
     userName: 'Akash' 
   };
 
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState(initialMessage ? [initialMessage] : []);
   const [inputText, setInputText] = useState('');
   const [currentLocation, setCurrentLocation] = useState(null);
 
@@ -21,13 +21,41 @@ export default function EmergencyChatScreen({ route, navigation }) {
     // 1. Ensure Socket is initialized & join room
     SocketService.initializeSocket();
 
+    // 2. Fetch saved chat history from MongoDB via REST API
+    fetch(`http://10.254.200.153:5001/api/chat/${tripId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'SUCCESS' && Array.isArray(data.messages) && data.messages.length > 0) {
+          setMessages(prev => {
+            // Merge MongoDB history + any initial/optimistic messages
+            const map = new Map();
+            data.messages.forEach(m => map.set(`${m.text}_${m.sender}`, m));
+            prev.forEach(m => map.set(`${m.text}_${m.sender}`, m));
+            return Array.from(map.values());
+          });
+        }
+      })
+      .catch(err => console.log('Error fetching chat history:', err.message));
+
     if (SocketService.socket) {
       SocketService.socket.emit('joinEmergencyRoom', { tripId });
+      SocketService.socket.emit('getChatHistory', { tripId });
 
-      // 2. Listen for incoming Real-time Messages
+      // Listen for socket history data
+      SocketService.socket.on('chatHistoryData', (history) => {
+        if (Array.isArray(history) && history.length > 0) {
+          setMessages(prev => {
+            const map = new Map();
+            history.forEach(m => map.set(`${m.text}_${m.sender}`, m));
+            prev.forEach(m => map.set(`${m.text}_${m.sender}`, m));
+            return Array.from(map.values());
+          });
+        }
+      });
+
+      // Listen for incoming Real-time Messages
       SocketService.socket.on('receiveEmergencyMessage', (newMessage) => {
         setMessages((prevMessages) => {
-          // Avoid duplicate if already added optimistically
           const exists = prevMessages.some(
             m => m.text === newMessage.text && m.sender === newMessage.sender && Math.abs(new Date(m.timestamp) - new Date(newMessage.timestamp)) < 2000
           );
@@ -36,7 +64,7 @@ export default function EmergencyChatScreen({ route, navigation }) {
         });
       });
 
-      // 3. Listen for Live Location Updates from Victim
+      // Listen for Live Location Updates from Victim
       SocketService.socket.on('locationUpdated', (locData) => {
         setCurrentLocation(locData);
       });
@@ -75,7 +103,7 @@ export default function EmergencyChatScreen({ route, navigation }) {
   return (
     <KeyboardAvoidingView 
       style={styles.container} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       {/* Top Banner with Back Arrow */}
       <View style={styles.topBanner}>
@@ -164,7 +192,15 @@ const styles = StyleSheet.create({
   senderName: { fontSize: 11, color: '#DDD', marginBottom: 2, fontWeight: 'bold' },
   messageText: { color: '#FFF', fontSize: 15 },
   timeText: { fontSize: 10, color: '#BBB', textAlign: 'right', marginTop: 4 },
-  inputContainer: { flexDirection: 'row', padding: 10, backgroundColor: '#FFF', borderTopWidth: 1, borderColor: '#EEE' },
+  inputContainer: { 
+    flexDirection: 'row', 
+    paddingHorizontal: 12, 
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'android' ? 28 : 15,
+    backgroundColor: '#FFF', 
+    borderTopWidth: 1, 
+    borderColor: '#EEE' 
+  },
   textInput: { flex: 1, height: 45, backgroundColor: '#F0F2F5', borderRadius: 20, paddingHorizontal: 15, fontSize: 15 },
   sendButton: { backgroundColor: '#3F51B5', borderRadius: 20, paddingHorizontal: 20, justifyContent: 'center', marginLeft: 8 },
   sendButtonText: { color: '#FFF', fontWeight: 'bold' }

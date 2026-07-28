@@ -109,10 +109,11 @@ class TripController {
 
         // Broadcast SOS System Message to Emergency Chat Room if room exists
         const roomTarget = tripId || 'TRIP_123';
+        const mapsLink = `https://maps.google.com/?q=${latitude},${longitude}`;
         const sosChatMessage = {
             sender: 'SYSTEM',
             senderName: '🚨 SYSTEM ALERT',
-            text: `EMERGENCY SOS DISPATCHED! Live location: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+            text: `🚨 EMERGENCY SOS! ${userName || userId} is in danger! Track live location: ${mapsLink}`,
             timestamp: new Date()
         };
 
@@ -144,6 +145,18 @@ class TripController {
             console.log(`💬 Message sent in room ${tripId}: [${senderName}] ${text}`);
         } catch (err) {
             console.error('❌ Error saving chat message:', err.message);
+        }
+    }
+
+    // Fetch Chat History
+    async handleGetChatHistory(socket, data) {
+        const { tripId } = data;
+        if (!tripId) return;
+        try {
+            const messages = await tripRepo.getChatMessages(tripId);
+            socket.emit('chatHistoryData', messages);
+        } catch (err) {
+            console.error('❌ Error fetching chat history:', err.message);
         }
     }
 }

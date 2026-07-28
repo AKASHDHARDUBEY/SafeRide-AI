@@ -347,7 +347,7 @@ export default function TripScreen({ navigation }) {
                 </View>
               </View>
 
-              <SOSButton />
+              <SOSButton navigation={navigation} />
 
               <TouchableOpacity 
                 style={styles.chatButton} 

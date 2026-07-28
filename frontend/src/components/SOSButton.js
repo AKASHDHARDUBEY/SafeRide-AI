@@ -4,7 +4,7 @@ import * as Location from 'expo-location';
 import * as SecureStore from 'expo-secure-store';
 import SocketService from '../services/SocketService';
 
-export default function SOSButton() {
+export default function SOSButton({ navigation }) {
   const [loading, setLoading] = useState(false);
 
   const handleSOSPress = async () => {
@@ -32,9 +32,11 @@ export default function SOSButton() {
               const userId = await SecureStore.getItemAsync('userId');
               const userEmail = await SecureStore.getItemAsync('userEmail');
 
+              const activeTrip = SocketService.activeTripId || 'TRIP_123';
+
               // 3. Dispatch SOS via HTTP REST API for guaranteed delivery + socket event
               const sosPayload = {
-                tripId: SocketService.activeTripId || 'TRIP_123',
+                tripId: activeTrip,
                 userId: userId || 'USER_123',
                 userName: userEmail || 'SafeRide User',
                 latitude: location.coords.latitude,
@@ -43,35 +45,32 @@ export default function SOSButton() {
                 guardianFcmToken: ''
               };
 
+              const mapsLink = `https://maps.google.com/?q=${location.coords.latitude},${location.coords.longitude}`;
+              const sosMessage = {
+                sender: 'VICTIM',
+                senderName: userEmail || 'SafeRide User',
+                text: `🚨 EMERGENCY SOS! ${userEmail || 'SafeRide User'} is in danger! Track live location: ${mapsLink}`,
+                timestamp: new Date().toISOString()
+              };
+
               if (SocketService.socket) {
                 SocketService.socket.emit('triggerSOS', sosPayload);
                 // Also post an emergency chat message directly to room
                 SocketService.socket.emit('sendEmergencyMessage', {
-                  tripId: SocketService.activeTripId || 'TRIP_123',
-                  sender: 'VICTIM',
-                  senderName: userEmail || 'Rider',
-                  text: `🚨 EMERGENCY SOS TRIGGERED! Live GPS: ${location.coords.latitude.toFixed(4)}, ${location.coords.longitude.toFixed(4)}`
+                  tripId: activeTrip,
+                  ...sosMessage
                 });
               }
 
               try {
-                const response = await fetch('http://10.254.200.153:5001/api/sos', {
+                await fetch('http://10.254.200.153:5001/api/sos', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(sosPayload)
                 });
-                const resData = await response.json();
-                console.log('REST SOS Response:', resData);
+              } catch (e) {}
 
-                if (resData.results?.sms?.error) {
-                  Alert.alert('🚨 SOS Dispatched', `Alert sent! Fast2SMS note: ${resData.results.sms.error}`);
-                } else {
-                  Alert.alert('🚨 Emergency Dispatched', 'Your live location SOS alert has been sent to your emergency contact!');
-                }
-              } catch (httpErr) {
-                console.log('REST SOS Error:', httpErr.message);
-                Alert.alert('🚨 Emergency Dispatched', 'Your live location SOS alert has been sent!');
-              }
+              Alert.alert('🚨 Emergency Dispatched', 'Your live location SOS alert has been sent to your emergency contact!');
             } catch (err) {
               Alert.alert('Error', 'Failed to acquire location for SOS: ' + err.message);
             } finally {

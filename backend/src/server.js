@@ -32,6 +32,17 @@ app.post('/api/sos', async (req, res) => {
     res.json({ status: 'SUCCESS', message: 'SOS Dispatched via REST', results });
 });
 
+// REST Endpoint to fetch Chat History for a trip
+app.get('/api/chat/:tripId', async (req, res) => {
+    const tripRepo = require('./repositories/tripRepository');
+    try {
+        const messages = await tripRepo.getChatMessages(req.params.tripId);
+        res.json({ status: 'SUCCESS', messages });
+    } catch (err) {
+        res.status(500).json({ status: 'ERROR', message: err.message });
+    }
+});
+
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: { origin: "*" }
@@ -61,6 +72,10 @@ io.on('connection', (socket) => {
 
     socket.on('sendEmergencyMessage', (data) => {
         tripController.handleChatMessage(io, data);
+    });
+
+    socket.on('getChatHistory', (data) => {
+        tripController.handleGetChatHistory(socket, data);
     });
 
     socket.on('disconnect', () => {
