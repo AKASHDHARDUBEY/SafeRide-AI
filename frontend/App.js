@@ -3,8 +3,12 @@ import { SafeAreaView, StatusBar, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 
-// Import our task globally so Expo registers it outside of the React component lifecycle
-import './src/tasks/LocationTask';
+// Register background location task safely
+try {
+  require('./src/tasks/LocationTask');
+} catch (e) {
+  console.warn('Background location task registration deferred:', e.message);
+}
 
 // Import Screens
 import LoginScreen from './src/screens/LoginScreen';
