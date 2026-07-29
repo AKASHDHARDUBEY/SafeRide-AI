@@ -53,6 +53,7 @@ export default function TripScreen({ navigation }) {
   const [guardians, setGuardians] = useState([]);
 
   const [path, setPath] = useState([]);
+  const [isPremium, setIsPremium] = useState(false);
   const mapRef = useRef(null);
 
   const isTrackingRef = useRef(isTracking);
@@ -62,6 +63,14 @@ export default function TripScreen({ navigation }) {
     isTrackingRef.current = isTracking;
     locationSubRef.current = locationSubscription;
   }, [isTracking, locationSubscription]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', async () => {
+      const flag = await SecureStore.getItemAsync('isPremium');
+      if (flag === 'true') setIsPremium(true);
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   useEffect(() => {
     (async () => {
@@ -318,6 +327,17 @@ export default function TripScreen({ navigation }) {
                 <Text style={styles.statusText}>Safety Monitoring Ready</Text>
               </View>
 
+              {!isPremium && (
+                <TouchableOpacity 
+                  style={styles.proUpgradeBanner} 
+                  onPress={() => navigation.navigate('UpgradePro')}
+                >
+                  <Ionicons name="diamond" size={18} color="#FFD700" style={{ marginRight: 8 }} />
+                  <Text style={styles.proUpgradeBannerText}>Upgrade to Pro Protection (₹1)</Text>
+                  <Ionicons name="chevron-forward" size={18} color="#FFF" style={{ marginLeft: 'auto' }} />
+                </TouchableOpacity>
+              )}
+
               <TouchableOpacity style={styles.startButton} onPress={handleStartTrip}>
                 <Text style={styles.buttonText}>Start Secure Trip</Text>
               </TouchableOpacity>
@@ -558,5 +578,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#888',
     marginTop: 5
+  },
+  proUpgradeBanner: {
+    backgroundColor: '#3F51B5',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    borderRadius: 12,
+    marginBottom: 15,
+    elevation: 3
+  },
+  proUpgradeBannerText: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 14
   }
 });
