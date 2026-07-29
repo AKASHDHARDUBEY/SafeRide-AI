@@ -2,6 +2,7 @@
   "expo": {
     "name": "SafeRide AI",
     "slug": "saferide-ai",
+    "owner": "akashdhar21",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -43,7 +44,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "99ae4e0e-db67-440b-9f5a-eb0bab68fcb8"
+        "projectId": "5e331731-0d0b-4e50-8d6c-df3cb1c1b382"
       }
     }
   }
