@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform 
 } from 'react-native';
@@ -7,6 +7,7 @@ import * as SecureStore from 'expo-secure-store';
 import SocketService from '../services/SocketService';
 
 export default function EmergencyChatScreen({ route, navigation }) {
+  const flatListRef = useRef(null);
   // Params passed during navigation or emergency open
   const routeParams = route.params || {};
   const activeTripId = routeParams.tripId || SocketService.activeTripId || 'EMERGENCY_ROOM';
@@ -167,8 +168,11 @@ export default function EmergencyChatScreen({ route, navigation }) {
 
       {/* Chat Messages List */}
       <FlatList
+        ref={flatListRef}
         data={messages}
         keyExtractor={(item, index) => index.toString()}
+        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+        onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
         renderItem={({ item }) => {
           const isMyMessage = item.sender === userRole;
           return (
@@ -195,6 +199,7 @@ export default function EmergencyChatScreen({ route, navigation }) {
           placeholderTextColor="#888"
           value={inputText}
           onChangeText={setInputText}
+          multiline={true}
         />
         <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
           <Text style={styles.sendButtonText}>Send</Text>

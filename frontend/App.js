@@ -14,6 +14,7 @@ import GuardiansScreen from './src/screens/GuardiansScreen';
 import TripsScreen from './src/screens/TripsScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import EmergencyChatScreen from './src/screens/EmergencyChatScreen';
+import UpgradeProScreen from './src/screens/UpgradeProScreen';
 
 const Stack = createStackNavigator();
 
@@ -30,6 +31,7 @@ export default function App() {
           <Stack.Screen name="Trips" component={TripsScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="EmergencyChat" component={EmergencyChatScreen} />
+          <Stack.Screen name="UpgradePro" component={UpgradeProScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaView>

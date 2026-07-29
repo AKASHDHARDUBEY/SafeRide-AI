@@ -57,6 +57,12 @@ app.get('/api/chat/:tripId', async (req, res) => {
     }
 });
 
+// 💳 Razorpay Payment Routes
+const paymentController = require('./controllers/paymentController');
+app.post('/api/payment/create-order', (req, res) => paymentController.createOrder(req, res));
+app.post('/api/payment/verify-payment', (req, res) => paymentController.verifyPayment(req, res));
+app.get('/api/payment/status/:userId', (req, res) => paymentController.checkPremiumStatus(req, res));
+
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: { origin: "*" }

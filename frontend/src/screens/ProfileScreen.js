@@ -9,6 +9,7 @@ export default function ProfileScreen({ navigation }) {
   const [user, setUser] = useState(null);
   const [phone, setPhone] = useState('Not Set');
   const [emergencyContact, setEmergencyContact] = useState('Not Set');
+  const [isPremium, setIsPremium] = useState(false);
 
   useEffect(() => {
     const currentUser = auth.currentUser;
@@ -16,6 +17,7 @@ export default function ProfileScreen({ navigation }) {
       setUser(currentUser);
     }
     loadSavedDetails();
+    loadPremiumStatus();
   }, []);
 
   const loadSavedDetails = async () => {
@@ -29,12 +31,33 @@ export default function ProfileScreen({ navigation }) {
     }
   };
 
+  const loadPremiumStatus = async () => {
+    const premiumFlag = await SecureStore.getItemAsync('isPremium');
+    if (premiumFlag === 'true') {
+      setIsPremium(true);
+      return;
+    }
+    // Also check from backend
+    try {
+      const userId = await SecureStore.getItemAsync('user_uid');
+      if (userId) {
+        const res = await fetch(`http://10.254.200.153:5001/api/payment/status/${userId}`);
+        const data = await res.json();
+        if (data.success && data.isPremium) {
+          setIsPremium(true);
+          await SecureStore.setItemAsync('isPremium', 'true');
+        }
+      }
+    } catch (err) {}
+  };
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
       await SecureStore.deleteItemAsync('userId');
       await SecureStore.deleteItemAsync('userEmail');
       await SecureStore.deleteItemAsync('user_uid');
+      await SecureStore.deleteItemAsync('isPremium');
       Alert.alert('Logged Out', 'You have been safely logged out.');
       navigation.replace('Login');
     } catch (error) {
@@ -54,6 +77,11 @@ export default function ProfileScreen({ navigation }) {
           </View>
           <Text style={styles.userName}>{user?.displayName || 'Akash Dubey'}</Text>
           <Text style={styles.userEmail}>{user?.email || 'akash@example.com'}</Text>
+          {isPremium && (
+            <View style={styles.proBadge}>
+              <Text style={styles.proBadgeText}>⭐ PRO MEMBER</Text>
+            </View>
+          )}
         </View>
 
         {/* Profile Details List */}
@@ -79,10 +107,20 @@ export default function ProfileScreen({ navigation }) {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Safety Shield Status</Text>
             <Text style={[styles.infoValue, { color: '#3F51B5', fontWeight: 'bold' }]}>
-              Active 🟢
+              {isPremium ? 'Pro Active ⭐' : 'Free Plan 🟢'}
             </Text>
           </View>
         </View>
+
+        {/* Upgrade to Pro Button */}
+        <TouchableOpacity 
+          style={isPremium ? styles.proActiveBtn : styles.upgradeBtn} 
+          onPress={() => navigation.navigate('UpgradePro')}
+        >
+          <Text style={styles.upgradeBtnText}>
+            {isPremium ? '⭐ Pro Features Active' : '💎 Upgrade to Pro (₹1)'}
+          </Text>
+        </TouchableOpacity>
 
         {/* Logout Button */}
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
@@ -127,8 +165,13 @@ const styles = StyleSheet.create({
   infoLabel: { fontSize: 14, color: '#666' },
   infoValue: { fontSize: 14, fontWeight: '600', color: '#222' },
   divider: { height: 1, backgroundColor: '#F0F0F0', marginVertical: 4 },
-  logoutBtn: { backgroundColor: '#EF5350', height: 50, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 25 },
+  logoutBtn: { backgroundColor: '#EF5350', height: 50, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 12 },
   logoutBtnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
+  proBadge: { backgroundColor: '#3F51B5', paddingHorizontal: 14, paddingVertical: 5, borderRadius: 15, marginTop: 8 },
+  proBadgeText: { color: '#FFF', fontSize: 12, fontWeight: 'bold' },
+  upgradeBtn: { backgroundColor: '#3F51B5', height: 50, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 20 },
+  proActiveBtn: { backgroundColor: '#2ECC71', height: 50, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 20 },
+  upgradeBtnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
   bottomNav: {
     flexDirection: 'row',
     justifyContent: 'space-around',
