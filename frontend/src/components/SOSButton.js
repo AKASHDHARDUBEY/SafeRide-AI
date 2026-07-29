@@ -66,7 +66,7 @@ export default function SOSButton({ navigation }) {
               }
 
               try {
-                await fetch('http://10.254.200.153:5001/api/sos', {
+                await fetch('http://16.16.123.22:5001/api/sos', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(sosPayload)

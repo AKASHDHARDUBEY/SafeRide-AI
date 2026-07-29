@@ -52,7 +52,7 @@ export default function EmergencyChatScreen({ route, navigation }) {
     });
 
     // 3. Fetch saved chat history from MongoDB via REST API
-    fetch(`http://10.254.200.153:5001/api/chat/${activeTripId}`)
+    fetch(`http://16.16.123.22:5001/api/chat/${activeTripId}`)
       .then(res => res.json())
       .then(data => {
         if (data.status === 'SUCCESS' && Array.isArray(data.messages) && data.messages.length > 0) {

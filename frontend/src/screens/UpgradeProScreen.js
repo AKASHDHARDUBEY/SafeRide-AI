@@ -7,7 +7,7 @@ import { WebView } from 'react-native-webview';
 import * as SecureStore from 'expo-secure-store';
 import { Ionicons } from '@expo/vector-icons';
 
-const BACKEND_URL = 'http://10.254.200.153:5001';
+const BACKEND_URL = 'http://16.16.123.22:5001';
 const RAZORPAY_KEY_ID = 'rzp_test_TJE8QzJSXhFEBD';
 
 export default function UpgradeProScreen({ navigation }) {

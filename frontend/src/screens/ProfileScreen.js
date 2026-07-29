@@ -41,7 +41,7 @@ export default function ProfileScreen({ navigation }) {
     try {
       const userId = await SecureStore.getItemAsync('user_uid');
       if (userId) {
-        const res = await fetch(`http://10.254.200.153:5001/api/payment/status/${userId}`);
+        const res = await fetch(`http://16.16.123.22:5001/api/payment/status/${userId}`);
         const data = await res.json();
         if (data.success && data.isPremium) {
           setIsPremium(true);

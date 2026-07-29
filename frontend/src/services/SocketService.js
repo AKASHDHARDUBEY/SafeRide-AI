@@ -3,7 +3,7 @@ import io from 'socket.io-client';
 class SocketService {
   constructor() {
     this.socket = null;
-    this.serverUrl = 'http://10.254.200.153:5001'; // Local backend
+    this.serverUrl = 'http://16.16.123.22:5001';
     this.activeTripId = null;
   }
 
