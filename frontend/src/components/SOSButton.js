@@ -9,7 +9,7 @@ export default function SOSButton({ navigation }) {
 
   const handleSOSPress = async () => {
     Alert.alert(
-      '🚨 Confirm SOS Emergency',
+      'Confirm SOS Emergency',
       'Send instant location alert and SMS to your emergency contact?',
       [
         { text: 'Cancel', style: 'cancel' },
@@ -18,23 +18,19 @@ export default function SOSButton({ navigation }) {
           style: 'destructive',
           onPress: async () => {
             setLoading(true);
-            // Vibrate the phone for urgency feedback
             Vibration.vibrate([0, 200, 100, 200]);
 
             try {
-              // 1. Fetch current live location
               const location = await Location.getCurrentPositionAsync({
                 accuracy: Location.Accuracy.High
               });
 
-              // 2. Fetch saved contact details from SecureStore
               const emergencyPhone = await SecureStore.getItemAsync('emergency_contact');
               const userId = await SecureStore.getItemAsync('userId');
               const userEmail = await SecureStore.getItemAsync('userEmail');
 
               const activeTrip = SocketService.activeTripId || 'TRIP_123';
 
-              // 3. Dispatch SOS via HTTP REST API for guaranteed delivery + socket event
               const sosPayload = {
                 tripId: activeTrip,
                 userId: userId || 'USER_123',
@@ -48,12 +44,11 @@ export default function SOSButton({ navigation }) {
               const mapsLink = `https://maps.google.com/?q=${location.coords.latitude},${location.coords.longitude}`;
               const sosMessage = {
                 sender: 'SYSTEM',
-                senderName: '🚨 SYSTEM ALERT',
-                text: `🚨 EMERGENCY SOS! ${userEmail || 'SafeRide User'} is in danger! Track live location: ${mapsLink}`,
+                senderName: 'SYSTEM ALERT',
+                text: `EMERGENCY SOS: ${userEmail || 'SafeRide User'} is in danger! Track live location: ${mapsLink}`,
                 timestamp: new Date().toISOString()
               };
 
-              // Save sosMessage into local SecureStore chat cache immediately!
               try {
                 const cacheKey = `chat_cache_${activeTrip}`;
                 const existing = await SecureStore.getItemAsync(cacheKey);
@@ -64,7 +59,6 @@ export default function SOSButton({ navigation }) {
 
               if (SocketService.socket) {
                 SocketService.socket.emit('triggerSOS', sosPayload);
-                // Also post an emergency chat message directly to room
                 SocketService.socket.emit('sendEmergencyMessage', {
                   tripId: activeTrip,
                   ...sosMessage
@@ -79,7 +73,7 @@ export default function SOSButton({ navigation }) {
                 });
               } catch (e) {}
 
-              Alert.alert('🚨 Emergency Dispatched', 'Your live location SOS alert has been sent to your emergency contact!');
+              Alert.alert('Emergency Dispatched', 'Your live location SOS alert has been sent to your emergency contact.');
             } catch (err) {
               Alert.alert('Error', 'Failed to acquire location for SOS: ' + err.message);
             } finally {
@@ -98,7 +92,7 @@ export default function SOSButton({ navigation }) {
       disabled={loading}
     >
       <Text style={styles.sosText}>
-        {loading ? 'SENDING SOS...' : '🚨 EMERGENCY SOS'}
+        {loading ? 'SENDING SOS...' : 'EMERGENCY SOS'}
       </Text>
     </TouchableOpacity>
   );

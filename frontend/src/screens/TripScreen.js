@@ -332,8 +332,8 @@ export default function TripScreen({ navigation }) {
                   style={styles.proUpgradeBanner} 
                   onPress={() => navigation.navigate('UpgradePro')}
                 >
-                  <Ionicons name="diamond" size={18} color="#FFD700" style={{ marginRight: 8 }} />
-                  <Text style={styles.proUpgradeBannerText}>Upgrade to Pro Protection (₹1)</Text>
+                  <Ionicons name="ribbon-outline" size={18} color="#FFD700" style={{ marginRight: 8 }} />
+                  <Text style={styles.proUpgradeBannerText}>Upgrade to Pro Protection (INR 1)</Text>
                   <Ionicons name="chevron-forward" size={18} color="#FFF" style={{ marginLeft: 'auto' }} />
                 </TouchableOpacity>
               )}

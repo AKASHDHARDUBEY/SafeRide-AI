@@ -9,18 +9,18 @@ class SocketService {
 
   initializeSocket() {
     if (!this.socket) {
-      console.log('🔌 Attempting socket connection to:', this.serverUrl);
+      console.log('Attempting socket connection to:', this.serverUrl);
       this.socket = io(this.serverUrl, {
         timeout: 5000,
         transports: ['websocket', 'polling']
       });
 
       this.socket.on('connect', () => {
-        console.log('✅ Socket connected to backend, id:', this.socket.id);
+        console.log('Socket connected to backend, id:', this.socket.id);
       });
 
       this.socket.on('connect_error', (err) => {
-        console.log('❌ Socket connection error:', err.message);
+        console.log('Socket connection error:', err.message);
       });
 
       this.socket.on('tripStarted', (data) => {
@@ -29,7 +29,7 @@ class SocketService {
       });
 
       this.socket.on('sosDispatched', (data) => {
-        console.log('🚨 SOS Response from server:', JSON.stringify(data));
+        console.log('SOS Response from server:', JSON.stringify(data));
       });
 
       this.socket.on('tripEnded', () => {

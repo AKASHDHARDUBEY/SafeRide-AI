@@ -56,7 +56,7 @@ export default function UpgradeProScreen({ navigation }) {
     }
   };
 
-  // 2. Generate Razorpay Checkout HTML for WebView
+  // Generate Razorpay Checkout HTML for WebView
   const generateRazorpayHtml = (orderId) => {
     const html = `
       <!DOCTYPE html>
@@ -75,7 +75,7 @@ export default function UpgradeProScreen({ navigation }) {
         </head>
         <body>
           <div class="loader">
-            <p>🔐 Opening Secure Payment...</p>
+            <p>Opening Secure Payment...</p>
             <p style="font-size:14px; opacity:0.8;">Powered by Razorpay</p>
           </div>
           <script>
@@ -84,7 +84,7 @@ export default function UpgradeProScreen({ navigation }) {
               "amount": "100",
               "currency": "INR",
               "name": "SafeRide AI",
-              "description": "Pro Safety Upgrade - ₹1",
+              "description": "Pro Safety Upgrade - INR 1",
               "order_id": "${orderId}",
               "theme": { "color": "#3F51B5" },
               "handler": function (response) {
@@ -118,7 +118,6 @@ export default function UpgradeProScreen({ navigation }) {
     setCheckoutHtml(html);
   };
 
-  // 3. Handle WebView Payment Response
   const handleWebViewMessage = async (event) => {
     try {
       const res = JSON.parse(event.nativeEvent.data);
@@ -128,7 +127,6 @@ export default function UpgradeProScreen({ navigation }) {
         setLoading(true);
         const userId = await SecureStore.getItemAsync('user_uid');
 
-        // Verify signature on backend
         const verifyRes = await fetch(`${BACKEND_URL}/api/payment/verify-payment`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -147,16 +145,16 @@ export default function UpgradeProScreen({ navigation }) {
           setIsPremium(true);
           await SecureStore.setItemAsync('isPremium', 'true');
           Alert.alert(
-            '🎉 Congratulations!', 
-            'Pro Safety Features Unlocked Successfully!\n\n✅ Unlimited Emergency Contacts\n✅ Fast2SMS Direct Alert\n✅ Real-Time Emergency Chat\n✅ Anti-Tamper Watchdog'
+            'Success', 
+            'Pro Safety Features Unlocked Successfully!\n\n- Unlimited Emergency Contacts\n- Fast2SMS Direct Alert\n- Real-Time Emergency Chat\n- Anti-Tamper Watchdog'
           );
         } else {
-          Alert.alert('❌ Payment Failed', 'Signature verification failed. Please try again.');
+          Alert.alert('Payment Failed', 'Signature verification failed. Please try again.');
         }
       } else if (res.status === 'CANCELLED') {
         Alert.alert('Payment Cancelled', 'You cancelled the payment.');
       } else if (res.status === 'FAILED') {
-        Alert.alert('❌ Payment Failed', res.error?.description || 'Payment could not be processed.');
+        Alert.alert('Payment Failed', res.error?.description || 'Payment could not be processed.');
       }
     } catch (err) {
       setModalVisible(false);
@@ -166,7 +164,6 @@ export default function UpgradeProScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color="#FFF" />
@@ -177,13 +174,12 @@ export default function UpgradeProScreen({ navigation }) {
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-        {/* Free Plan Card */}
         <View style={styles.card}>
           <View style={styles.planHeader}>
             <Ionicons name="shield-outline" size={28} color="#888" />
             <Text style={styles.planName}>Free Plan</Text>
           </View>
-          <Text style={styles.price}>₹0 <Text style={styles.priceSub}>/ Forever</Text></Text>
+          <Text style={styles.price}>INR 0 <Text style={styles.priceSub}>/ Forever</Text></Text>
           
           <View style={styles.featureRow}>
             <Ionicons name="checkmark-circle" size={18} color="#2ECC71" />
@@ -207,22 +203,21 @@ export default function UpgradeProScreen({ navigation }) {
           </View>
 
           <View style={styles.currentPlanBadge}>
-            <Text style={styles.currentPlanText}>{isPremium ? 'Basic Plan' : '✅ Current Plan'}</Text>
+            <Text style={styles.currentPlanText}>{isPremium ? 'Basic Plan' : 'Current Plan'}</Text>
           </View>
         </View>
 
-        {/* Pro Plan Card */}
         <View style={[styles.card, styles.proCard]}>
           <View style={styles.recommendedBadge}>
-            <Text style={styles.recommendedText}>⭐ RECOMMENDED</Text>
+            <Text style={styles.recommendedText}>RECOMMENDED</Text>
           </View>
 
           <View style={styles.planHeader}>
-            <Ionicons name="diamond" size={28} color="#3F51B5" />
+            <Ionicons name="diamond-outline" size={28} color="#3F51B5" />
             <Text style={[styles.planName, { color: '#3F51B5' }]}>Pro Protection</Text>
           </View>
           <Text style={[styles.price, { color: '#3F51B5' }]}>
-            ₹1 <Text style={styles.priceSub}>/ One-time Demo</Text>
+            INR 1 <Text style={styles.priceSub}>/ One-time Demo</Text>
           </Text>
 
           <View style={styles.featureRow}>
@@ -259,17 +254,22 @@ export default function UpgradeProScreen({ navigation }) {
               <ActivityIndicator color="#FFF" />
             ) : (
               <Text style={styles.btnText}>
-                {isPremium ? '✅ Pro Active' : '💎 Upgrade to Pro (₹1)'}
+                {isPremium ? 'Pro Active' : 'Upgrade to Pro (INR 1)'}
               </Text>
             )}
           </TouchableOpacity>
         </View>
 
-        {/* Test Mode Info */}
-        <View style={styles.testInfo}>
-          <Ionicons name="information-circle-outline" size={16} color="#888" />
-          <Text style={styles.testInfoText}>
-            Test Mode: Use UPI <Text style={{ fontWeight: 'bold' }}>success@razorpay</Text> or Card <Text style={{ fontWeight: 'bold' }}>4111 1111 1111 1111</Text>
+        <View style={styles.testInfoCard}>
+          <Text style={styles.testInfoTitle}>Testing Instructions (Razorpay Test Mode):</Text>
+          <Text style={styles.testInfoItem}>
+            1. <Text style={{ fontWeight: 'bold' }}>Netbanking</Text>: Select <Text style={{ fontWeight: 'bold', color: '#3F51B5' }}>SBI or HDFC</Text> -> Tap Pay -> Tap <Text style={{ fontWeight: 'bold', color: '#2ECC71' }}>"Success"</Text> button.
+          </Text>
+          <Text style={styles.testInfoItem}>
+            2. <Text style={{ fontWeight: 'bold' }}>UPI</Text>: Type UPI ID <Text style={{ fontWeight: 'bold', color: '#3F51B5' }}>success@razorpay</Text> -> Tap Pay.
+          </Text>
+          <Text style={styles.testInfoItem}>
+            3. <Text style={{ fontWeight: 'bold' }}>Card</Text>: Use Indian Test Card <Text style={{ fontWeight: 'bold', color: '#3F51B5' }}>4585 3333 3333 3333</Text> (Expiry: 12/28, CVV: 123).
           </Text>
         </View>
 
@@ -387,14 +387,17 @@ const styles = StyleSheet.create({
   },
   btnText: { color: '#FFF', fontWeight: 'bold', fontSize: 17 },
 
-  testInfo: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'center',
-    padding: 12,
-    opacity: 0.7
+  testInfoCard: { 
+    backgroundColor: '#FFF', 
+    borderRadius: 12, 
+    padding: 15, 
+    marginTop: 10,
+    elevation: 2,
+    borderColor: '#E0E0E0',
+    borderWidth: 1
   },
-  testInfoText: { fontSize: 11, color: '#888', marginLeft: 5, textAlign: 'center' },
+  testInfoTitle: { fontSize: 13, fontWeight: 'bold', color: '#333', marginBottom: 8 },
+  testInfoItem: { fontSize: 12, color: '#555', marginVertical: 3, lineHeight: 18 },
 
   closeModal: { 
     backgroundColor: '#EF5350', 

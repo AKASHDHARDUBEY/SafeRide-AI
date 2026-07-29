@@ -79,12 +79,11 @@ export default function ProfileScreen({ navigation }) {
           <Text style={styles.userEmail}>{user?.email || 'akash@example.com'}</Text>
           {isPremium && (
             <View style={styles.proBadge}>
-              <Text style={styles.proBadgeText}>⭐ PRO MEMBER</Text>
+              <Text style={styles.proBadgeText}>PRO MEMBER</Text>
             </View>
           )}
         </View>
 
-        {/* Profile Details List */}
         <View style={styles.infoCard}>
           <Text style={styles.cardTitle}>Account & Emergency Info</Text>
           
@@ -107,18 +106,17 @@ export default function ProfileScreen({ navigation }) {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Safety Shield Status</Text>
             <Text style={[styles.infoValue, { color: '#3F51B5', fontWeight: 'bold' }]}>
-              {isPremium ? 'Pro Active ⭐' : 'Free Plan 🟢'}
+              {isPremium ? 'Pro Active' : 'Free Plan Active'}
             </Text>
           </View>
         </View>
 
-        {/* Upgrade to Pro Button */}
         <TouchableOpacity 
           style={isPremium ? styles.proActiveBtn : styles.upgradeBtn} 
           onPress={() => navigation.navigate('UpgradePro')}
         >
           <Text style={styles.upgradeBtnText}>
-            {isPremium ? '⭐ Pro Features Active' : '💎 Upgrade to Pro (₹1)'}
+            {isPremium ? 'Pro Features Active' : 'Upgrade to Pro (INR 1)'}
           </Text>
         </TouchableOpacity>
 

@@ -79,16 +79,15 @@ class TripController {
             const trips = await tripRepo.findTripsByUser(userId);
             socket.emit('historyData', trips);
         } catch (err) {
-            console.error("❌ Error fetching history:", err.message);
+            console.error("Error fetching history:", err.message);
             socket.emit('error', { message: 'Failed to fetch history' });
         }
     }
 
-    // 🚨 Emergency SOS Handler
     async handleEmergencySOS(socket, data, io) {
         const { userId, userName, latitude, longitude, emergencyPhone, guardianFcmToken, tripId } = data;
 
-        console.log(`🚨 EMERGENCY SOS RECEIVED FROM: ${userName || userId}`);
+        console.log(`Emergency SOS received from: ${userName || userId}`);
 
         const userData = { name: userName || 'SafeRide User' };
         const guardianData = { 
@@ -97,23 +96,20 @@ class TripController {
         };
         const coords = { latitude, longitude };
 
-        // Fire Fast2SMS + FCM simultaneously
         const results = await notifyService.dispatchEmergencyAlert(userData, guardianData, coords);
 
-        // Send acknowledgement back to user app
         socket.emit('sosDispatched', { 
             status: 'SUCCESS', 
-            message: 'Emergency SMS & App Alert sent to guardians!',
+            message: 'Emergency SMS and App Alert sent to guardians',
             results 
         });
 
-        // Broadcast SOS System Message to Emergency Chat Room if room exists
         const roomTarget = tripId || 'TRIP_123';
         const mapsLink = `https://maps.google.com/?q=${latitude},${longitude}`;
         const sosChatMessage = {
             sender: 'SYSTEM',
-            senderName: '🚨 SYSTEM ALERT',
-            text: `🚨 EMERGENCY SOS! ${userName || userId} is in danger! Track live location: ${mapsLink}`,
+            senderName: 'SYSTEM ALERT',
+            text: `EMERGENCY SOS: ${userName || userId} is in danger! Track live location: ${mapsLink}`,
             timestamp: new Date()
         };
 
@@ -125,30 +121,25 @@ class TripController {
         await tripRepo.saveChatMessage(roomTarget, sosChatMessage).catch(() => {});
     }
 
-    // 💬 Real-Time Emergency Room Chat Message Handler
     async handleChatMessage(io, data) {
         const { tripId, sender, senderName, text } = data;
 
         const messageData = {
-            sender,       // 'VICTIM' or 'GUARDIAN'
+            sender,
             senderName,
             text,
             timestamp: new Date()
         };
 
         try {
-            // 1. Save chat message to MongoDB
             await tripRepo.saveChatMessage(tripId, messageData);
-
-            // 2. Broadcast to room (both Victim & Guardian)
             io.to(tripId).emit('receiveEmergencyMessage', messageData);
-            console.log(`💬 Message sent in room ${tripId}: [${senderName}] ${text}`);
+            console.log(`Message in room ${tripId} from [${senderName}]: ${text}`);
         } catch (err) {
-            console.error('❌ Error saving chat message:', err.message);
+            console.error('Error saving chat message:', err.message);
         }
     }
 
-    // Fetch Chat History
     async handleGetChatHistory(socket, data) {
         const { tripId } = data;
         if (!tripId) return;
@@ -156,7 +147,7 @@ class TripController {
             const messages = await tripRepo.getChatMessages(tripId);
             socket.emit('chatHistoryData', messages);
         } catch (err) {
-            console.error('❌ Error fetching chat history:', err.message);
+            console.error('Error fetching chat history:', err.message);
         }
     }
 }

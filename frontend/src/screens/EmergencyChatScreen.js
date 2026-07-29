@@ -155,13 +155,13 @@ export default function EmergencyChatScreen({ route, navigation }) {
         </TouchableOpacity>
 
         <View style={styles.bannerHeader}>
-          <Text style={styles.bannerTitle}>🚨 Emergency Safety Hub</Text>
+          <Text style={styles.bannerTitle}>Emergency Safety Hub</Text>
           {currentLocation ? (
             <Text style={styles.locationText}>
-              📍 Live GPS: {currentLocation.latitude.toFixed(4)}, {currentLocation.longitude.toFixed(4)}
+              Live GPS: {currentLocation.latitude.toFixed(4)}, {currentLocation.longitude.toFixed(4)}
             </Text>
           ) : (
-            <Text style={styles.locationText}>📡 Syncing Live Location...</Text>
+            <Text style={styles.locationText}>Syncing Live Location...</Text>
           )}
         </View>
       </View>
