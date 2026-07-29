@@ -47,11 +47,20 @@ export default function SOSButton({ navigation }) {
 
               const mapsLink = `https://maps.google.com/?q=${location.coords.latitude},${location.coords.longitude}`;
               const sosMessage = {
-                sender: 'VICTIM',
-                senderName: userEmail || 'SafeRide User',
+                sender: 'SYSTEM',
+                senderName: '🚨 SYSTEM ALERT',
                 text: `🚨 EMERGENCY SOS! ${userEmail || 'SafeRide User'} is in danger! Track live location: ${mapsLink}`,
                 timestamp: new Date().toISOString()
               };
+
+              // Save sosMessage into local SecureStore chat cache immediately!
+              try {
+                const cacheKey = `chat_cache_${activeTrip}`;
+                const existing = await SecureStore.getItemAsync(cacheKey);
+                const msgs = existing ? JSON.parse(existing) : [];
+                msgs.push(sosMessage);
+                await SecureStore.setItemAsync(cacheKey, JSON.stringify(msgs));
+              } catch (e) {}
 
               if (SocketService.socket) {
                 SocketService.socket.emit('triggerSOS', sosPayload);

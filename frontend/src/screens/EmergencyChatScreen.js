@@ -3,43 +3,73 @@ import {
   View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as SecureStore from 'expo-secure-store';
 import SocketService from '../services/SocketService';
 
 export default function EmergencyChatScreen({ route, navigation }) {
   // Params passed during navigation or emergency open
-  const { tripId, userRole, userName, initialMessage } = route.params || { 
-    tripId: 'TRIP_123', 
-    userRole: 'VICTIM', // or 'GUARDIAN'
-    userName: 'Akash' 
-  };
+  const routeParams = route.params || {};
+  const activeTripId = routeParams.tripId || SocketService.activeTripId || 'EMERGENCY_ROOM';
+  const userRole = routeParams.userRole || 'VICTIM';
+  const userName = routeParams.userName || 'Akash';
+  const initialMessage = routeParams.initialMessage;
 
   const [messages, setMessages] = useState(initialMessage ? [initialMessage] : []);
   const [inputText, setInputText] = useState('');
   const [currentLocation, setCurrentLocation] = useState(null);
 
+  const cacheKey = `chat_cache_${activeTripId}`;
+
+  // Helper to save messages to local SecureStore
+  const saveMessagesToLocalCache = async (msgs) => {
+    try {
+      if (msgs && msgs.length > 0) {
+        await SecureStore.setItemAsync(cacheKey, JSON.stringify(msgs));
+      }
+    } catch (e) {}
+  };
+
   useEffect(() => {
     // 1. Ensure Socket is initialized & join room
     SocketService.initializeSocket();
 
-    // 2. Fetch saved chat history from MongoDB via REST API
-    fetch(`http://10.254.200.153:5001/api/chat/${tripId}`)
+    // 2. First load instantly from local SecureStore cache
+    SecureStore.getItemAsync(cacheKey).then(cached => {
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setMessages(prev => {
+              const map = new Map();
+              parsed.forEach(m => map.set(`${m.text}_${m.sender}`, m));
+              prev.forEach(m => map.set(`${m.text}_${m.sender}`, m));
+              return Array.from(map.values());
+            });
+          }
+        } catch (e) {}
+      }
+    });
+
+    // 3. Fetch saved chat history from MongoDB via REST API
+    fetch(`http://10.254.200.153:5001/api/chat/${activeTripId}`)
       .then(res => res.json())
       .then(data => {
         if (data.status === 'SUCCESS' && Array.isArray(data.messages) && data.messages.length > 0) {
           setMessages(prev => {
-            // Merge MongoDB history + any initial/optimistic messages
             const map = new Map();
             data.messages.forEach(m => map.set(`${m.text}_${m.sender}`, m));
             prev.forEach(m => map.set(`${m.text}_${m.sender}`, m));
-            return Array.from(map.values());
+            const merged = Array.from(map.values());
+            saveMessagesToLocalCache(merged);
+            return merged;
           });
         }
       })
       .catch(err => console.log('Error fetching chat history:', err.message));
 
     if (SocketService.socket) {
-      SocketService.socket.emit('joinEmergencyRoom', { tripId });
-      SocketService.socket.emit('getChatHistory', { tripId });
+      SocketService.socket.emit('joinEmergencyRoom', { tripId: activeTripId });
+      SocketService.socket.emit('getChatHistory', { tripId: activeTripId });
 
       // Listen for socket history data
       SocketService.socket.on('chatHistoryData', (history) => {
@@ -48,7 +78,9 @@ export default function EmergencyChatScreen({ route, navigation }) {
             const map = new Map();
             history.forEach(m => map.set(`${m.text}_${m.sender}`, m));
             prev.forEach(m => map.set(`${m.text}_${m.sender}`, m));
-            return Array.from(map.values());
+            const merged = Array.from(map.values());
+            saveMessagesToLocalCache(merged);
+            return merged;
           });
         }
       });
@@ -60,7 +92,9 @@ export default function EmergencyChatScreen({ route, navigation }) {
             m => m.text === newMessage.text && m.sender === newMessage.sender && Math.abs(new Date(m.timestamp) - new Date(newMessage.timestamp)) < 2000
           );
           if (exists) return prevMessages;
-          return [...prevMessages, newMessage];
+          const updated = [...prevMessages, newMessage];
+          saveMessagesToLocalCache(updated);
+          return updated;
         });
       });
 
@@ -77,21 +111,25 @@ export default function EmergencyChatScreen({ route, navigation }) {
         SocketService.socket.off('locationUpdated');
       }
     };
-  }, [tripId]);
+  }, [activeTripId]);
 
   const sendMessage = () => {
     if (!inputText.trim()) return;
 
     const messageData = {
-      tripId,
-      sender: userRole,     // 'VICTIM' or 'GUARDIAN'
+      tripId: activeTripId,
+      sender: userRole,
       senderName: userName || (userRole === 'VICTIM' ? 'Rider' : 'Guardian'),
       text: inputText.trim(),
       timestamp: new Date().toISOString()
     };
 
-    // Optimistic UI Update: add message immediately to screen!
-    setMessages((prevMessages) => [...prevMessages, messageData]);
+    // Optimistic UI Update: add message immediately & cache locally
+    setMessages((prevMessages) => {
+      const updated = [...prevMessages, messageData];
+      saveMessagesToLocalCache(updated);
+      return updated;
+    });
 
     // Emit message to Backend
     if (SocketService.socket) {
@@ -103,7 +141,8 @@ export default function EmergencyChatScreen({ route, navigation }) {
   return (
     <KeyboardAvoidingView 
       style={styles.container} 
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
     >
       {/* Top Banner with Back Arrow */}
       <View style={styles.topBanner}>

@@ -21,7 +21,7 @@ app.get('/', (req, res) => {
 // REST Endpoint for Emergency SOS (Fallback)
 const notifyService = require('./services/notifyService');
 app.post('/api/sos', async (req, res) => {
-    const { userId, userName, latitude, longitude, emergencyPhone, guardianFcmToken } = req.body;
+    const { userId, userName, latitude, longitude, emergencyPhone, guardianFcmToken, tripId } = req.body;
     console.log(`🚨 HTTP REST EMERGENCY SOS RECEIVED FROM: ${userName || userId}`);
     
     const userData = { name: userName || 'SafeRide User' };
@@ -29,6 +29,20 @@ app.post('/api/sos', async (req, res) => {
     const coords = { latitude, longitude };
 
     const results = await notifyService.dispatchEmergencyAlert(userData, guardianData, coords);
+
+    // Save emergency SOS message to MongoDB Chat History & broadcast!
+    const tripRepo = require('./repositories/tripRepository');
+    const roomTarget = tripId || 'EMERGENCY_ROOM';
+    const mapsLink = `https://maps.google.com/?q=${latitude},${longitude}`;
+    const sosChatMessage = {
+        sender: 'SYSTEM',
+        senderName: '🚨 SYSTEM ALERT',
+        text: `🚨 EMERGENCY SOS! ${userName || userId} is in danger! Track live location: ${mapsLink}`,
+        timestamp: new Date()
+    };
+    await tripRepo.saveChatMessage(roomTarget, sosChatMessage).catch(() => {});
+    io.to(roomTarget).emit('receiveEmergencyMessage', sosChatMessage);
+
     res.json({ status: 'SUCCESS', message: 'SOS Dispatched via REST', results });
 });
 
